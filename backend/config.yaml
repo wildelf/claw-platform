@@ -1,0 +1,22 @@
+app:
+  name: "claw-platform"
+  debug: true
+  host: "0.0.0.0"
+  port: 8000
+
+storage:
+  type: "sqlite"
+  sqlite:
+    path: "./data/claw.db"
+
+auth:
+  type: "jwt"
+  jwt:
+    secret: "your-secret-key-change-in-production"
+    algorithm: "HS256"
+    expire_minutes: 1440
+
+models:
+  default:
+    type: "openai"
+    model: "gpt-4o"

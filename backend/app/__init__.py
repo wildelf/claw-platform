@@ -1,0 +1,1 @@
+"""Claw Platform Backend Application."""
