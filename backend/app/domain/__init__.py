@@ -6,6 +6,7 @@ from app.domain.skill import Skill, SkillStatus, SkillFile, FileType
 from app.domain.tool import Tool, ToolType
 from app.domain.model_config import ModelConfig, ModelProviderType
 from app.domain.user import User, UserRole
+from app.domain.feedback import FeedbackEvent, FeedbackRating
 
 __all__ = [
     "BaseEntity",
@@ -22,4 +23,6 @@ __all__ = [
     "ModelProviderType",
     "User",
     "UserRole",
+    "FeedbackEvent",
+    "FeedbackRating",
 ]
