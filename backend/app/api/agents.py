@@ -3,12 +3,27 @@
 from typing import List
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 from app.api.deps import Storage, UserId
 from app.application.agent_service import AgentService
-from app.domain.agent import Agent, AgentStatus
+from app.domain.agent import Agent
 
 router = APIRouter(prefix="/agents", tags=["agents"])
+
+
+class UpdateAgent(BaseModel):
+    """Payload for updating an agent."""
+
+    name: str | None = Field(default=None, max_length=100)
+    description: str | None = Field(default=None, max_length=1000)
+    role: str | None = Field(default=None, max_length=500)
+    goal: str | None = Field(default=None, max_length=1000)
+    backstory: str | None = Field(default=None, max_length=2000)
+    skill_ids: List[str] | None = None
+    tool_ids: List[str] | None = None
+    model_config_id: str | None = None
+    status: str | None = None
 
 
 @router.post("", response_model=Agent)
@@ -51,12 +66,12 @@ async def get_agent(
 @router.put("/{agent_id}", response_model=Agent)
 async def update_agent(
     agent_id: str,
-    data: dict,
+    data: UpdateAgent,
     storage: Storage,
 ) -> Agent:
     """Update agent."""
     service = AgentService(storage)
-    agent = await service.update(agent_id, data)
+    agent = await service.update(agent_id, data.model_dump(exclude_unset=True))
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     return agent
