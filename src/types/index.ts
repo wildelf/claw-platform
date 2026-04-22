@@ -17,18 +17,36 @@ export interface FeedbackEvent {
   timestamp: number
 }
 
+export type AgentStatus = 'pending' | 'active' | 'paused'
+
 export interface Agent {
   id: string
   name: string
   description: string
-  skills: string[]
-  tools: Tool[]
+  role: string
+  goal: string
+  backstory: string
+  skill_ids: string[]
+  tool_ids: string[]
+  model_config_id: string | null
+  status: AgentStatus
+  user_id: string
+  created_at: string
+  updated_at: string
 }
+
+export type SkillStatus = 'pending' | 'trained' | 'evolved' | 'needs_review'
 
 export interface Skill {
   id: string
   name: string
   description: string
-  fileCount: number
-  files: Record<string, string>
+  path: string
+  status: SkillStatus
+  feedback_count: number
+  version: number
+  metadata: Record<string, any>
+  user_id: string
+  created_at: string
+  updated_at: string
 }
