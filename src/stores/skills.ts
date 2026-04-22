@@ -8,11 +8,16 @@ export const useSkillsStore = defineStore('skills', () => {
   const currentSkill = ref<Skill | null>(null)
   const files = ref<Map<string, Record<string, string>>>(new Map())
   const loading = ref(false)
+  const error = ref<string | null>(null)
 
   async function fetchSkills(): Promise<void> {
     loading.value = true
+    error.value = null
     try {
       skills.value = await skillsApi.getSkills()
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Failed to fetch skills'
+      throw e
     } finally {
       loading.value = false
     }
@@ -20,17 +25,27 @@ export const useSkillsStore = defineStore('skills', () => {
 
   async function fetchSkill(id: string): Promise<void> {
     loading.value = true
+    error.value = null
     try {
       currentSkill.value = await skillsApi.getSkill(id)
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Failed to fetch skill'
+      throw e
     } finally {
       loading.value = false
     }
   }
 
   async function fetchSkillFiles(id: string): Promise<Record<string, string>> {
-    const skillFiles = await skillsApi.getSkillFiles(id)
-    files.value.set(id, skillFiles)
-    return skillFiles
+    error.value = null
+    try {
+      const skillFiles = await skillsApi.getSkillFiles(id)
+      files.value.set(id, skillFiles)
+      return skillFiles
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Failed to fetch skill files'
+      throw e
+    }
   }
 
   return {
@@ -38,6 +53,7 @@ export const useSkillsStore = defineStore('skills', () => {
     currentSkill,
     files,
     loading,
+    error,
     fetchSkills,
     fetchSkill,
     fetchSkillFiles
