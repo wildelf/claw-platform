@@ -55,11 +55,18 @@ class ModelsConfig(BaseModel):
     default: ModelConfigItem
 
 
+class EvolutionConfig(BaseModel):
+    generation_threshold: int = 3
+    auto_evolve: bool = False
+    max_versions: int = 10
+
+
 class Settings(BaseSettings):
     app: AppConfig = AppConfig()
     storage: StorageConfig = StorageConfig()
     auth: AuthConfig
     models: ModelsConfig
+    evolution: EvolutionConfig = EvolutionConfig()
 
     @classmethod
     def from_yaml(cls, path: Path | str) -> "Settings":

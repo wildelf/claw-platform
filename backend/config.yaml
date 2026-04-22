@@ -20,3 +20,8 @@ models:
   default:
     type: "openai"
     model: "gpt-4o"
+
+evolution:
+  generation_threshold: 3
+  auto_evolve: false
+  max_versions: 10
