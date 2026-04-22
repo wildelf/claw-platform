@@ -9,6 +9,7 @@ from app.config import settings
 from app.domain.base import EntityId
 from app.domain.user import User, UserRole
 from app.infrastructure.storage.sqlite import SQLiteStorage
+from app.application.skill_service import SkillService
 
 
 # Global storage instance
@@ -26,6 +27,14 @@ async def get_storage() -> SQLiteStorage:
 
 # Type alias for dependency injection
 Storage = Annotated[SQLiteStorage, Depends(get_storage)]
+
+
+async def get_skill_service(storage: Storage) -> SkillService:
+    """Get skill service instance."""
+    return SkillService(storage)
+
+
+SkillServiceDep = Annotated[SkillService, Depends(get_skill_service)]
 
 
 async def get_current_user_id() -> EntityId:
