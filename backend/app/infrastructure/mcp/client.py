@@ -4,6 +4,8 @@ import asyncio
 import json
 from typing import Any, Dict, List, Optional
 
+DEFAULT_REQUEST_TIMEOUT = 30.0
+
 
 class MCPClient:
     """Client for Model Context Protocol servers."""
@@ -46,7 +48,7 @@ class MCPClient:
         })
         return response.get("content", [])
 
-    async def _send_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _send_request(self, method: str, params: Dict[str, Any], timeout: float = DEFAULT_REQUEST_TIMEOUT) -> Dict[str, Any]:
         """Send a JSON-RPC request to the MCP server."""
         if not self._process:
             raise RuntimeError("MCP client not started")
@@ -63,7 +65,10 @@ class MCPClient:
         self._process.stdin.write(request_json.encode())
         await self._process.stdin.drain()
 
-        response_line = await self._process.stdout.readline()
+        response_line = await asyncio.wait_for(
+            self._process.stdout.readline(),
+            timeout=timeout
+        )
         response = json.loads(response_line.decode())
 
         if "error" in response:
