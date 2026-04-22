@@ -108,6 +108,34 @@ async def run_agent(
     return {"status": "todo", "message": "Agent execution not yet implemented"}
 
 
+@router.post("/{agent_id}/run-with-feedback")
+async def run_agent_with_feedback(
+    agent_id: str,
+    task: str,
+    storage: Storage,
+) -> dict:
+    """Run agent and submit feedback when task completes.
+
+    This is a convenience endpoint that runs the agent and
+    returns immediately. Feedback should be submitted separately
+    via POST /api/feedback after reviewing the results.
+
+    TODO: Implement actual agent execution via deepagents.
+    """
+    service = AgentService(storage)
+    agent = await service.get(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    # TODO: Integrate with deepagents for actual execution
+    return {
+        "status": "todo",
+        "message": "Agent execution with feedback not yet implemented",
+        "agent_id": agent_id,
+        "task": task,
+    }
+
+
 @router.post("/{agent_id}/stop")
 async def stop_agent(
     agent_id: str,

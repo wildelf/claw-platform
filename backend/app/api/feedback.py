@@ -64,3 +64,40 @@ async def get_feedback(
     if not feedback:
         raise HTTPException(status_code=404, detail="Feedback not found")
     return feedback
+
+
+@router.post("/{feedback_id}/process")
+async def process_feedback(
+    feedback_id: str,
+    storage: Storage,
+) -> dict:
+    """Process a feedback event and trigger evolution if needed.
+
+    This endpoint is for manually triggering evolution processing
+    on a feedback event (e.g., after reviewing the feedback).
+    """
+    service = FeedbackService(storage)
+    feedback = await service.get(feedback_id)
+    if not feedback:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+
+    _, evolved_skill_id = await service.submit_with_evolution(feedback)
+
+    return {
+        "feedback_id": feedback_id,
+        "evolved_skill_id": evolved_skill_id,
+        "evolution_triggered": evolved_skill_id is not None,
+    }
+
+
+@router.get("/skills/{skill_id}/evolution-history")
+async def get_skill_evolution_history(
+    skill_id: str,
+    storage: Storage,
+    offset: int = 0,
+    limit: int = 50,
+) -> List[FeedbackEvent]:
+    """Get feedback history for a skill that contributed to evolution."""
+    service = FeedbackService(storage)
+    feedbacks = await service.list_by_skill(skill_id, offset, limit)
+    return [f for f in feedbacks if f.rating == FeedbackRating.POSITIVE.value]
