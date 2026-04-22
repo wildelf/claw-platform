@@ -171,3 +171,125 @@ class SkillEvolutionService:
         ]
 
         return "\n".join(code)
+
+    async def evolve_skill(
+        self,
+        skill_id: str,
+        improvements: dict,
+    ) -> Skill:
+        """Evolve an existing skill based on feedback.
+
+        Args:
+            skill_id: ID of the skill to evolve
+            improvements: Dict containing:
+                - positive_patterns: List[str] patterns to add
+                - negative_patterns: List[str] patterns to avoid
+                - new_examples: List[str] examples to add
+
+        Returns:
+            Updated skill
+        """
+        skill = await self.storage.get_skill(skill_id)
+        if not skill:
+            raise ValueError(f"Skill not found: {skill_id}")
+
+        # Update version
+        skill.version += 1
+
+        # Update metadata with evolution info
+        if skill.metadata is None:
+            skill.metadata = {}
+        if "evolutions" not in skill.metadata:
+            skill.metadata["evolutions"] = []
+        skill.metadata["evolutions"].append({
+            "version": skill.version,
+            "improvements": improvements,
+        })
+
+        # If there was an issue list, clear it on successful evolution
+        if skill.status == SkillStatus.NEEDS_REVIEW:
+            skill.status = SkillStatus.EVOLVED
+
+        # Regenerate skill files with improvements
+        await self._update_skill_files(skill, improvements)
+
+        await self.storage.save_skill(skill)
+        return skill
+
+    async def _update_skill_files(
+        self,
+        skill: Skill,
+        improvements: dict,
+    ) -> None:
+        """Update skill files based on evolution improvements."""
+        # Get existing SKILL.md if exists
+        existing_content = None
+        try:
+            existing_bytes = await self.storage.get_skill_file(skill.id, "SKILL.md")
+            if existing_bytes:
+                existing_content = existing_bytes.decode("utf-8")
+        except Exception:
+            pass
+
+        # Build updated content
+        updated_content = self._build_evolved_skill_md(skill, improvements, existing_content)
+        await self.storage.save_skill_file(
+            skill.id,
+            "SKILL.md",
+            updated_content.encode("utf-8"),
+        )
+
+        # Update helper.py if improvements include code changes
+        if improvements.get("helper_updates"):
+            await self.storage.save_skill_file(
+                skill.id,
+                "helper.py",
+                improvements["helper_updates"].encode("utf-8"),
+            )
+
+    def _build_evolved_skill_md(
+        self,
+        skill: Skill,
+        improvements: dict,
+        existing_content: str | None,
+    ) -> str:
+        """Build updated SKILL.md content."""
+        lines = []
+
+        if existing_content:
+            # Parse existing and update sections
+            lines = existing_content.split("\n")
+        else:
+            # Create new from scratch
+            lines = [
+                f"# {skill.name}",
+                "",
+                skill.description or "",
+            ]
+
+        # Add improvements section
+        lines.append("")
+        lines.append("## Evolution Notes")
+        lines.append(f"- Version {skill.version} update")
+
+        if improvements.get("positive_patterns"):
+            lines.append("")
+            lines.append("### Successful Patterns")
+            for pattern in improvements["positive_patterns"]:
+                lines.append(f"- {pattern}")
+
+        if improvements.get("negative_patterns"):
+            lines.append("")
+            lines.append("### Patterns to Avoid")
+            for pattern in improvements["negative_patterns"]:
+                lines.append(f"- {pattern}")
+
+        if improvements.get("new_examples"):
+            lines.append("")
+            lines.append("### Additional Examples")
+            for example in improvements["new_examples"]:
+                lines.append("```")
+                lines.append(example)
+                lines.append("```")
+
+        return "\n".join(lines)
