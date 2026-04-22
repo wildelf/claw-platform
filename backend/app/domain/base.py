@@ -21,9 +21,9 @@ class BaseEntity(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
     id: EntityId = Field(default_factory=EntityId.generate)
-    created_at: datetime = Field(default_factory=datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     def model_post_init(self, __states: Any) -> None:
         """Update updated_at on init."""
-        object.__setattr__(self, "updated_at", datetime.now(timezone.utc)())
+        object.__setattr__(self, "updated_at", datetime.now(timezone.utc))
