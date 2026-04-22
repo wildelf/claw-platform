@@ -13,7 +13,7 @@ export const useAgentsStore = defineStore('agents', () => {
     loading.value = true
     error.value = null
     try {
-      agents.value = await agentsApi.getAgents()
+      agents.value = await agentsApi.list()
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to fetch agents'
       throw e
@@ -26,7 +26,7 @@ export const useAgentsStore = defineStore('agents', () => {
     loading.value = true
     error.value = null
     try {
-      currentAgent.value = await agentsApi.getAgent(id)
+      currentAgent.value = await agentsApi.get(id)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to fetch agent'
       throw e
@@ -39,7 +39,7 @@ export const useAgentsStore = defineStore('agents', () => {
     loading.value = true
     error.value = null
     try {
-      const agent = await agentsApi.createAgent(data)
+      const agent = await agentsApi.create(data)
       agents.value.push(agent)
       return agent
     } catch (e) {
@@ -54,7 +54,7 @@ export const useAgentsStore = defineStore('agents', () => {
     loading.value = true
     error.value = null
     try {
-      const agent = await agentsApi.updateAgent(id, data)
+      const agent = await agentsApi.update(id, data)
       const index = agents.value.findIndex(a => a.id === id)
       if (index !== -1) {
         agents.value[index] = agent
@@ -75,7 +75,7 @@ export const useAgentsStore = defineStore('agents', () => {
     loading.value = true
     error.value = null
     try {
-      await agentsApi.deleteAgent(id)
+      await agentsApi.delete(id)
       agents.value = agents.value.filter(a => a.id !== id)
       if (currentAgent.value?.id === id) {
         currentAgent.value = null

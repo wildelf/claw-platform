@@ -1,27 +1,33 @@
+import client from './client'
 import type { Agent } from '@/types'
 
 export const agentsApi = {
-  async getAgents(): Promise<Agent[]> {
-    // TODO: implement actual API call
-    return []
+  async list(): Promise<Agent[]> {
+    const { data } = await client.get('/agents')
+    return data
   },
 
-  async getAgent(id: string): Promise<Agent | null> {
-    // TODO: implement actual API call
-    return null
+  async get(id: string): Promise<Agent> {
+    const { data } = await client.get(`/agents/${id}`)
+    return data
   },
 
-  async createAgent(data: Partial<Agent>): Promise<Agent> {
-    // TODO: implement actual API call
-    return {} as Agent
+  async create(agent: Partial<Agent>): Promise<Agent> {
+    const { data } = await client.post('/agents', agent)
+    return data
   },
 
-  async updateAgent(id: string, data: Partial<Agent>): Promise<Agent> {
-    // TODO: implement actual API call
-    return {} as Agent
+  async update(id: string, agent: Partial<Agent>): Promise<Agent> {
+    const { data } = await client.put(`/agents/${id}`, agent)
+    return data
   },
 
-  async deleteAgent(id: string): Promise<void> {
-    // TODO: implement actual API call
+  async delete(id: string): Promise<void> {
+    await client.delete(`/agents/${id}`)
+  },
+
+  async run(id: string, task: string): Promise<unknown> {
+    const { data } = await client.post(`/agents/${id}/run`, { task })
+    return data
   }
 }
