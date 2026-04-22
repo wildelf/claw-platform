@@ -76,6 +76,8 @@ class SkillEvolutionService:
         """Handle negative feedback - mark for review."""
         skill.status = SkillStatus.NEEDS_REVIEW
         # Store the issue in metadata
+        if skill.metadata is None:
+            skill.metadata = {}
         if "issues" not in skill.metadata:
             skill.metadata["issues"] = []
         skill.metadata["issues"].append({
@@ -133,9 +135,9 @@ class SkillEvolutionService:
             f"- {context.get('steps', 'Follow the successful pattern')}",
             "",
             "## Examples",
-            f"```",
+            "```",
             f"{feedback.result[:500]}",
-            f"```" if len(feedback.result) > 500 else "",
+            "```",
             "",
             "## Notes",
             "- Auto-generated from positive feedback",
