@@ -13,10 +13,10 @@ router = APIRouter(prefix="/feedback", tags=["feedback"])
 
 
 class CreateFeedbackRequest(BaseModel):
-    agent_id: str
-    skill_id: Optional[str] = None
-    task_id: str
-    result: str
+    agent_id: str = Field(..., max_length=36)
+    skill_id: Optional[str] = Field(None, max_length=36)
+    task_id: str = Field(..., max_length=36)
+    result: str = Field(..., max_length=10000)
     rating: FeedbackRating
     context: dict = Field(default_factory=dict)
 

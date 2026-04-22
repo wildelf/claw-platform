@@ -14,7 +14,10 @@ class FeedbackService:
 
     async def create(self, feedback: FeedbackEvent) -> FeedbackEvent:
         """Create a new feedback event."""
-        await self.storage.save_feedback(feedback)
+        try:
+            await self.storage.save_feedback(feedback)
+        except Exception as e:
+            raise RuntimeError(f"Failed to save feedback: {e}") from e
         return feedback
 
     async def get(self, feedback_id: str) -> Optional[FeedbackEvent]:
