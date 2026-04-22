@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import agents, skills, tools, models
+from app.api import agents, skills, tools, models, feedback
 from app.config import settings
 
 app = FastAPI(
@@ -25,6 +25,7 @@ app.include_router(agents.router, prefix="/api")
 app.include_router(skills.router, prefix="/api")
 app.include_router(tools.router, prefix="/api")
 app.include_router(models.router, prefix="/api")
+app.include_router(feedback.router, prefix="/api")
 
 
 @app.get("/health")
