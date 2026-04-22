@@ -20,6 +20,26 @@ class FeedbackService:
             raise RuntimeError(f"Failed to save feedback: {e}") from e
         return feedback
 
+    async def submit_with_evolution(
+        self,
+        feedback: FeedbackEvent,
+    ) -> tuple[FeedbackEvent, Optional[str]]:
+        """Submit feedback and trigger evolution if needed.
+
+        Returns:
+            Tuple of (feedback, evolved_skill_id if triggered)
+        """
+        from app.application.skill_evolution_service import SkillEvolutionService
+
+        # Save feedback
+        await self.storage.save_feedback(feedback)
+
+        # Process evolution
+        evolution_service = SkillEvolutionService(self.storage)
+        evolved_skill_id = await evolution_service.process_feedback(feedback)
+
+        return feedback, evolved_skill_id
+
     async def get(self, feedback_id: str) -> Optional[FeedbackEvent]:
         """Get feedback by ID."""
         return await self.storage.get_feedback(feedback_id)
