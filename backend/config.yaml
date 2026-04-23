@@ -19,7 +19,9 @@ auth:
 models:
   default:
     type: "openai"
-    model: "gpt-4o"
+    model: "MiniMax-M2.7"
+    api_key: "sk-cp-e8M7RpJRGB65KkWuAX6TZYQc2GpKoa-jIWW8GNGz_eUpVJG93U-VAQbN-DOvj3_YBL7Dqkp98OHJ6mnH5KSkySVVE_svebGOreehTzbMtrWt-XU_rNVm_Zg"
+    base_url: "https://api.minimax.chat/v1"
 
 evolution:
   generation_threshold: 3

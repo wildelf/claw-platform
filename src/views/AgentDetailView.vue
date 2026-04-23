@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
@@ -12,6 +12,11 @@ const agentsStore = useAgentsStore()
 
 const agentId = computed(() => route.params.id as string)
 const agent = computed(() => agentsStore.currentAgent)
+
+const running = ref(false)
+const taskInput = ref('')
+const runOutput = ref('')
+const outputRef = ref<HTMLElement | null>(null)
 
 onMounted(async () => {
   await agentsStore.fetchAgent(agentId.value)
@@ -27,7 +32,48 @@ function getStatusVariant(status: string): 'success' | 'warning' | 'danger' | 'd
 }
 
 function handleRun() {
-  console.log('Run agent:', agentId.value)
+  if (!taskInput.value.trim()) return
+  running.value = true
+  runOutput.value = ''
+
+  const xhr = new XMLHttpRequest()
+  xhr.open('POST', `/api/agents/${agentId.value}/run`, true)
+  xhr.setRequestHeader('Content-Type', 'application/json')
+
+  let buffer = ''
+  xhr.onprogress = () => {
+    buffer += xhr.responseText.substring(buffer.length)
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(line.slice(6))
+          if (data.type === 'content') {
+            let content = data.content
+            content = content.replace(/<think>[\s\S]*?<\/think>/gi, '')
+            runOutput.value += content
+          } else if (data.type === 'error') {
+            runOutput.value += `\nError: ${data.error}`
+          }
+        } catch {}
+      }
+    }
+  }
+
+  xhr.onload = () => {
+    if (xhr.status >= 400) {
+      runOutput.value = `Error: HTTP ${xhr.status}`
+    }
+    running.value = false
+  }
+
+  xhr.onerror = () => {
+    runOutput.value = `Error: Network error`
+    running.value = false
+  }
+
+  xhr.send(JSON.stringify({ task: taskInput.value }))
 }
 
 function handleEdit() {
@@ -40,7 +86,7 @@ function handleEdit() {
     <div class="flex justify-between items-center">
       <h1 class="text-2xl font-bold text-gray-900">Agent Details</h1>
       <div class="flex gap-2">
-        <Button variant="primary" @click="handleRun">Run Agent</Button>
+        <Button variant="primary" @click="handleRun" :loading="running">Run Agent</Button>
         <Button variant="secondary" @click="handleEdit">Edit</Button>
       </div>
     </div>
@@ -74,6 +120,30 @@ function handleEdit() {
           <div class="pt-4 border-t border-gray-200">
             <p class="text-sm font-medium text-gray-500">Backstory</p>
             <p class="text-gray-900 mt-1">{{ agent.backstory || 'Not specified' }}</p>
+          </div>
+        </div>
+      </Card>
+
+      <!-- Run Agent Panel -->
+      <Card>
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Run Agent</h3>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Task</label>
+            <textarea
+              v-model="taskInput"
+              class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+              rows="3"
+              placeholder="Enter task description..."
+              :disabled="running"
+            />
+          </div>
+          <Button @click="handleRun" :loading="running" :disabled="!taskInput.trim()">
+            Execute
+          </Button>
+          <div class="mt-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Output</label>
+            <pre ref="outputRef" class="bg-gray-100 p-4 rounded text-sm overflow-x-auto max-h-96 whitespace-pre-wrap">{{ runOutput || 'Waiting for response...' }}</pre>
           </div>
         </div>
       </Card>

@@ -1,8 +1,10 @@
 """Agent API routes."""
 
+import json
 from typing import List
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.api.deps import Storage, UserId
@@ -113,28 +115,82 @@ async def delete_agent(
     return {"ok": True}
 
 
+class RunAgentRequest(BaseModel):
+    """Payload for running an agent."""
+    task: str
+
+
 @router.post("/{agent_id}/run")
 async def run_agent(
     agent_id: str,
-    task: str,
+    request: RunAgentRequest,
     storage: Storage,
-) -> dict:
+):
     """Run agent task.
 
-    TODO: Implement actual agent execution via deepagents.
+    Executes the agent using deepagents and streams results.
     """
+    from app.deepagents.wrapper import DeepAgentsRunner
+
     service = AgentService(storage)
     agent = await service.get(agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
-    # TODO: Integrate with deepagents
-    return {"status": "todo", "message": "Agent execution not yet implemented"}
+
+    runner = DeepAgentsRunner(agent, storage)
+    await runner.create()
+
+    async def stream_events():
+        task = request.task
+        try:
+            yield f"data: {json.dumps({'type': 'start', 'task': task})}\n\n"
+            async for event in runner.run(task):
+                if not isinstance(event, dict):
+                    continue
+                event_type = event.get("event", "")
+                data = event.get("data", {})
+                chunk = data.get("chunk", {})
+
+                if event_type in ("on_chain_stream", "on_chain_end"):
+                    if not isinstance(chunk, dict):
+                        continue
+                    try:
+                        if "model" in chunk:
+                            model_data = chunk["model"]
+                            if isinstance(model_data, dict) and "messages" in model_data:
+                                messages = model_data["messages"]
+                                if isinstance(messages, list):
+                                    for msg in messages:
+                                        if hasattr(msg, "content") and msg.content:
+                                            yield f"data: {json.dumps({'type': 'content', 'content': msg.content})}\n\n"
+                        elif "messages" in chunk:
+                            messages = chunk["messages"]
+                            if isinstance(messages, list):
+                                for msg in messages:
+                                    if hasattr(msg, "content") and msg.content:
+                                        yield f"data: {json.dumps({'type': 'content', 'content': msg.content})}\n\n"
+                    except Exception:
+                        continue
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+
+    return StreamingResponse(
+        stream_events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+            "Transfer-Encoding": "chunked",
+        },
+    )
 
 
 @router.post("/{agent_id}/run-with-feedback")
 async def run_agent_with_feedback(
     agent_id: str,
-    task: str,
+    request: RunAgentRequest,
     storage: Storage,
 ) -> dict:
     """Run agent and submit feedback when task completes.
@@ -142,21 +198,62 @@ async def run_agent_with_feedback(
     This is a convenience endpoint that runs the agent and
     returns immediately. Feedback should be submitted separately
     via POST /api/feedback after reviewing the results.
-
-    TODO: Implement actual agent execution via deepagents.
     """
+    from app.deepagents.wrapper import DeepAgentsRunner
+
     service = AgentService(storage)
     agent = await service.get(agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    # TODO: Integrate with deepagents for actual execution
-    return {
-        "status": "todo",
-        "message": "Agent execution with feedback not yet implemented",
-        "agent_id": agent_id,
-        "task": task,
-    }
+    runner = DeepAgentsRunner(agent, storage)
+    await runner.create()
+
+    async def stream_events():
+        task = request.task
+        try:
+            yield f"data: {json.dumps({'type': 'start', 'task': task})}\n\n"
+            async for event in runner.run(task):
+                if not isinstance(event, dict):
+                    continue
+                event_type = event.get("event", "")
+                data = event.get("data", {})
+                chunk = data.get("chunk", {})
+
+                if event_type in ("on_chain_stream", "on_chain_end"):
+                    if not isinstance(chunk, dict):
+                        continue
+                    try:
+                        if "model" in chunk:
+                            model_data = chunk["model"]
+                            if isinstance(model_data, dict) and "messages" in model_data:
+                                messages = model_data["messages"]
+                                if isinstance(messages, list):
+                                    for msg in messages:
+                                        if hasattr(msg, "content") and msg.content:
+                                            yield f"data: {json.dumps({'type': 'content', 'content': msg.content})}\n\n"
+                        elif "messages" in chunk:
+                            messages = chunk["messages"]
+                            if isinstance(messages, list):
+                                for msg in messages:
+                                    if hasattr(msg, "content") and msg.content:
+                                        yield f"data: {json.dumps({'type': 'content', 'content': msg.content})}\n\n"
+                    except Exception:
+                        continue
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+
+    return StreamingResponse(
+        stream_events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+            "Transfer-Encoding": "chunked",
+        },
+    )
 
 
 @router.post("/{agent_id}/stop")

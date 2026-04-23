@@ -7,16 +7,16 @@ agent execution.
 import asyncio
 from typing import Any, AsyncGenerator, Optional
 
-from deepagents import create_deep_agent, SkillsMiddleware
+from deepagents import create_deep_agent
+from deepagents.middleware import SkillsMiddleware
 from deepagents.backends.state import StateBackend
 
 from app.domain.agent import Agent
 from app.domain.tool import Tool, ToolType
-from app.domain.model_config import ModelConfig, ModelProviderType
+from app.domain.model_config import ModelProviderType
 from app.infrastructure.storage.sqlite import SQLiteStorage
 from app.infrastructure.mcp.adapter import MCPAdapter
-from app.infrastructure.model.openai import OpenAIAdapter
-from app.infrastructure.model.anthropic import AnthropicAdapter
+from app.config import settings
 
 
 class DeepAgentsRunner:
@@ -60,9 +60,9 @@ class DeepAgentsRunner:
         # 6. Create deep_agent
         self._runner = create_deep_agent(
             model=model,
-            tools=tools,
-            middleware=[skills_middleware],
+            tools=tools if tools else None,
             system_prompt=system_prompt,
+            middleware=[skills_middleware] if skill_sources else [],
         )
 
     async def run(self, task: str) -> AsyncGenerator[Any, None]:
@@ -74,7 +74,10 @@ class DeepAgentsRunner:
         if not self._runner:
             await self.create()
 
-        async for event in self._runner.astream_events(task):
+        # deepagents expects dict input with 'messages' key for chat models
+        input_data = {"messages": [{"role": "user", "content": task}]}
+
+        async for event in self._runner.astream_events(input_data):
             yield event
 
     async def stop(self):
@@ -112,26 +115,36 @@ class DeepAgentsRunner:
         return tools
 
     async def _resolve_model(self):
-        """Resolve model from agent configuration."""
+        """Resolve model from agent configuration.
+
+        Returns a LangChain chat model instance compatible with deepagents.
+        For custom base_url, we need to use the raw ChatOpenAI/ChatAnthropic
+        and pass to create_deep_agent instead of a string.
+        """
+        from langchain_openai import ChatOpenAI
+
         if not self.agent.model_config_id:
-            # Use default model
-            return OpenAIAdapter(ModelConfig(
-                name="default",
-                type=ModelProviderType.OPENAI,
-                model="gpt-4o",
-                user_id=self.agent.user_id,
-            ))
+            # Use default model from config
+            default_model = settings.models.default
+            if default_model.base_url:
+                return ChatOpenAI(
+                    model=default_model.model,
+                    api_key=default_model.api_key,
+                    base_url=default_model.base_url,
+                )
+            return f"openai:{default_model.model}"
 
         config = await self.storage.get_model_config(self.agent.model_config_id)
         if not config:
             raise ValueError(f"Model config not found: {self.agent.model_config_id}")
 
-        if config.type == ModelProviderType.OPENAI:
-            return OpenAIAdapter(config)
-        elif config.type == ModelProviderType.ANTHROPIC:
-            return AnthropicAdapter(config)
-        else:
-            raise ValueError(f"Unsupported model type: {config.type}")
+        if config.base_url:
+            return ChatOpenAI(
+                model=config.model,
+                api_key=config.api_key,
+                base_url=config.base_url,
+            )
+        return f"openai:{config.model}"
 
     def _build_system_prompt(self) -> str:
         """Build system prompt from agent configuration."""
