@@ -15,8 +15,7 @@ const agent = computed(() => agentsStore.currentAgent)
 
 const running = ref(false)
 const taskInput = ref('')
-const runOutput = ref('')
-const outputRef = ref<HTMLElement | null>(null)
+const outputRef = ref<HTMLPreElement | null>(null)
 
 onMounted(async () => {
   await agentsStore.fetchAgent(agentId.value)
@@ -31,10 +30,19 @@ function getStatusVariant(status: string): 'success' | 'warning' | 'danger' | 'd
   }
 }
 
+function appendOutput(text: string) {
+  if (outputRef.value) {
+    outputRef.value.textContent = (outputRef.value.textContent || '') + text
+    outputRef.value.scrollTop = outputRef.value.scrollHeight
+  }
+}
+
 function handleRun() {
   if (!taskInput.value.trim()) return
   running.value = true
-  runOutput.value = ''
+  if (outputRef.value) {
+    outputRef.value.textContent = ''
+  }
 
   const xhr = new XMLHttpRequest()
   xhr.open('POST', `/api/agents/${agentId.value}/run`, true)
@@ -51,10 +59,11 @@ function handleRun() {
           const data = JSON.parse(line.slice(6))
           if (data.type === 'content') {
             let content = data.content
+            // Remove AI thinking tags
             content = content.replace(/<think>[\s\S]*?<\/think>/gi, '')
-            runOutput.value += content
+            appendOutput(content)
           } else if (data.type === 'error') {
-            runOutput.value += `\nError: ${data.error}`
+            appendOutput(`\nError: ${data.error}`)
           }
         } catch {}
       }
@@ -63,13 +72,13 @@ function handleRun() {
 
   xhr.onload = () => {
     if (xhr.status >= 400) {
-      runOutput.value = `Error: HTTP ${xhr.status}`
+      appendOutput(`\nError: HTTP ${xhr.status}`)
     }
     running.value = false
   }
 
   xhr.onerror = () => {
-    runOutput.value = `Error: Network error`
+    appendOutput(`\nError: Network error`)
     running.value = false
   }
 
@@ -143,7 +152,7 @@ function handleEdit() {
           </Button>
           <div class="mt-4">
             <label class="block text-sm font-medium text-gray-700 mb-1">Output</label>
-            <pre ref="outputRef" class="bg-gray-100 p-4 rounded text-sm overflow-x-auto max-h-96 whitespace-pre-wrap">{{ runOutput || 'Waiting for response...' }}</pre>
+            <pre ref="outputRef" class="bg-gray-100 p-4 rounded text-sm overflow-x-auto max-h-96 whitespace-pre-wrap">Waiting for response...</pre>
           </div>
         </div>
       </Card>
