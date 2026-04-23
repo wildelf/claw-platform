@@ -151,7 +151,7 @@ class SQLiteStorage:
 
     def _to_agent(self, row: AgentModel) -> Agent:
         return Agent(
-            id=row.id,
+            id=EntityId(row.id),
             name=row.name,
             description=row.description,
             role=row.role,
@@ -161,14 +161,14 @@ class SQLiteStorage:
             tool_ids=json.loads(row.tool_ids),
             model_config_id=row.model_config_id,
             status=AgentStatus(row.status),
-            user_id=row.user_id,
+            user_id=EntityId(row.user_id),
             created_at=row.created_at,
             updated_at=row.updated_at,
         )
 
     def _to_skill(self, row: SkillModel) -> Skill:
         return Skill(
-            id=row.id,
+            id=EntityId(row.id),
             name=row.name,
             description=row.description,
             path=row.path,
@@ -176,44 +176,44 @@ class SQLiteStorage:
             feedback_count=row.feedback_count,
             version=row.version,
             metadata=json.loads(row.skill_metadata),
-            user_id=row.user_id,
+            user_id=EntityId(row.user_id),
             created_at=row.created_at,
             updated_at=row.updated_at,
         )
 
     def _to_tool(self, row: ToolModel) -> Tool:
         return Tool(
-            id=row.id,
+            id=EntityId(row.id),
             name=row.name,
             description=row.description,
             type=ToolType(row.type),
             config=json.loads(row.config),
             allowed_tools=json.loads(row.allowed_tools),
-            user_id=row.user_id,
+            user_id=EntityId(row.user_id),
             created_at=row.created_at,
             updated_at=row.updated_at,
         )
 
     def _to_model_config(self, row: ModelConfigModel) -> ModelConfig:
         return ModelConfig(
-            id=row.id,
+            id=EntityId(row.id),
             name=row.name,
             type=ModelProviderType(row.type),
             model=row.model,
             api_key=row.api_key,
             base_url=row.base_url,
             config=json.loads(row.config),
-            user_id=row.user_id,
+            user_id=EntityId(row.user_id),
             created_at=row.created_at,
             updated_at=row.updated_at,
         )
 
     def _to_feedback(self, row: FeedbackModel) -> FeedbackEvent:
         return FeedbackEvent(
-            id=row.id,
-            agent_id=row.agent_id,
-            skill_id=row.skill_id,
-            task_id=row.task_id,
+            id=EntityId(row.id),
+            agent_id=EntityId(row.agent_id),
+            skill_id=EntityId(row.skill_id) if row.skill_id else None,
+            task_id=EntityId(row.task_id),
             result=row.result,
             rating=FeedbackRating(row.rating),
             context=json.loads(row.context),
@@ -222,7 +222,7 @@ class SQLiteStorage:
 
     def _to_user(self, row: UserModel) -> User:
         return User(
-            id=row.id,
+            id=EntityId(row.id),
             username=row.username,
             email=row.email,
             password_hash=row.password_hash,
@@ -250,7 +250,7 @@ class SQLiteStorage:
                 created_at=agent.created_at,
                 updated_at=agent.updated_at,
             )
-            session.merge(model)
+            session.add(model)
             await session.commit()
 
     async def get_agent(self, id: str) -> Optional[Agent]:
@@ -293,7 +293,7 @@ class SQLiteStorage:
                 created_at=skill.created_at,
                 updated_at=skill.updated_at,
             )
-            session.merge(model)
+            session.add(model)
             await session.commit()
 
     async def get_skill(self, id: str) -> Optional[Skill]:
@@ -393,7 +393,7 @@ class SQLiteStorage:
                 created_at=tool.created_at,
                 updated_at=tool.updated_at,
             )
-            session.merge(model)
+            session.add(model)
             await session.commit()
 
     async def get_tool(self, id: str) -> Optional[Tool]:
@@ -432,7 +432,7 @@ class SQLiteStorage:
                 created_at=config.created_at,
                 updated_at=config.updated_at,
             )
-            session.merge(model)
+            session.add(model)
             await session.commit()
 
     async def get_model_config(self, id: str) -> Optional[ModelConfig]:
@@ -469,7 +469,7 @@ class SQLiteStorage:
                 context=json.dumps(feedback.context),
                 created_at=feedback.created_at,
             )
-            session.merge(model)
+            session.add(model)
             await session.commit()
 
     async def get_feedback(self, id: str) -> Optional[FeedbackEvent]:
