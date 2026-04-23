@@ -56,6 +56,26 @@ export const useSkillsStore = defineStore('skills', () => {
     error,
     fetchSkills,
     fetchSkill,
-    fetchSkillFiles
+    fetchSkillFiles,
+    async updateSkill(id: string, data: Partial<Skill>): Promise<Skill> {
+      loading.value = true
+      error.value = null
+      try {
+        const skill = await skillsApi.update(id, data)
+        const index = skills.value.findIndex(s => s.id === id)
+        if (index !== -1) {
+          skills.value[index] = skill
+        }
+        if (currentSkill.value?.id === id) {
+          currentSkill.value = skill
+        }
+        return skill
+      } catch (e) {
+        error.value = e instanceof Error ? e.message : 'Failed to update skill'
+        throw e
+      } finally {
+        loading.value = false
+      }
+    }
   }
 })
