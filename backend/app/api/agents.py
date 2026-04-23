@@ -12,6 +12,19 @@ from app.domain.agent import Agent
 router = APIRouter(prefix="/agents", tags=["agents"])
 
 
+class CreateAgent(BaseModel):
+    """Payload for creating an agent."""
+
+    name: str = Field(max_length=100)
+    description: str = Field(default="", max_length=1000)
+    role: str = Field(default="", max_length=500)
+    goal: str = Field(default="", max_length=1000)
+    backstory: str = Field(default="", max_length=2000)
+    skill_ids: List[str] = Field(default_factory=list)
+    tool_ids: List[str] = Field(default_factory=list)
+    model_config_id: str | None = None
+
+
 class UpdateAgent(BaseModel):
     """Payload for updating an agent."""
 
@@ -28,12 +41,22 @@ class UpdateAgent(BaseModel):
 
 @router.post("", response_model=Agent)
 async def create_agent(
-    agent: Agent,
+    data: CreateAgent,
     storage: Storage,
     user_id: UserId,
 ) -> Agent:
     """Create a new agent."""
-    agent.user_id = user_id
+    agent = Agent(
+        name=data.name,
+        description=data.description,
+        role=data.role,
+        goal=data.goal,
+        backstory=data.backstory,
+        skill_ids=data.skill_ids,
+        tool_ids=data.tool_ids,
+        model_config_id=data.model_config_id,
+        user_id=user_id,
+    )
     service = AgentService(storage)
     return await service.create(agent)
 
