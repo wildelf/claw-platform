@@ -5,6 +5,7 @@ agent execution.
 """
 
 import asyncio
+import re
 from typing import Any, AsyncGenerator, Optional
 
 from deepagents import create_deep_agent
@@ -65,11 +66,11 @@ class DeepAgentsRunner:
             middleware=[skills_middleware] if skill_sources else [],
         )
 
-    async def run(self, task: str) -> AsyncGenerator[Any, None]:
+    async def run(self, task: str) -> AsyncGenerator[str, None]:
         """Run agent task.
 
         Yields:
-            Events from agent execution.
+            String chunks from agent execution.
         """
         if not self._runner:
             await self.create()
@@ -77,8 +78,21 @@ class DeepAgentsRunner:
         # deepagents expects dict input with 'messages' key for chat models
         input_data = {"messages": [{"role": "user", "content": task}]}
 
-        async for event in self._runner.astream_events(input_data):
-            yield event
+        # Use astream to get incremental output chunks
+        async for chunk in self._runner.astream(input_data):
+            if not isinstance(chunk, dict):
+                continue
+            # Extract content from various chunk formats
+            if "model" in chunk:
+                model_data = chunk["model"]
+                if isinstance(model_data, dict) and "messages" in model_data:
+                    for msg in model_data["messages"]:
+                        if hasattr(msg, 'content') and msg.content:
+                            yield msg.content
+            elif "messages" in chunk:
+                for msg in chunk["messages"]:
+                    if hasattr(msg, 'content') and msg.content:
+                        yield msg.content
 
     async def stop(self):
         """Stop running agent and cleanup."""
