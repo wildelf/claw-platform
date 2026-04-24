@@ -9,4 +9,7 @@ build/
 .venv/
 venv/
 .env
+.env.*
+config.yaml
+!.env.example
 .worktrees

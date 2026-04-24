@@ -57,6 +57,7 @@ async function loadFiles() {
     fileContents.value = contents
   } catch (e) {
     fileError.value = 'Failed to load files'
+    alert('Failed to load files: ' + (e instanceof Error ? e.message : String(e)))
   }
 }
 
