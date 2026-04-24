@@ -31,16 +31,24 @@ class DeepAgentsRunner:
         self,
         agent: Agent,
         storage: SQLiteStorage,
+        extra_skill_paths: list[str] | None = None,
+        system_prompt_override: str | None = None,
     ):
         self.agent = agent
         self.storage = storage
         self._runner = None
         self._mcp_adapters: dict[str, MCPAdapter] = {}
+        self._extra_skill_paths = extra_skill_paths or []
+        self._system_prompt_override = system_prompt_override
 
     async def create(self):
         """Create deepagents runner instance."""
         # 1. Load skills from storage into StateBackend
         backend = await self._create_backend()
+
+        # Add extra skill paths (filesystem-based skills)
+        for skill_path in self._extra_skill_paths:
+            self._add_filesystem_skill_to_backend(backend, skill_path)
 
         # 2. Load tools
         tools = await self._load_tools()
@@ -49,13 +57,15 @@ class DeepAgentsRunner:
         model = await self._resolve_model()
 
         # 4. Build system prompt from agent config
-        system_prompt = self._build_system_prompt()
+        system_prompt = self._system_prompt_override or self._build_system_prompt()
 
         # 5. Create Skills middleware
         skill_sources = await self._get_skill_sources()
+        # Also add extra skill paths as sources
+        all_skill_sources = skill_sources + self._extra_skill_paths
         skills_middleware = SkillsMiddleware(
             backend=backend,
-            sources=skill_sources,
+            sources=all_skill_sources,
         )
 
         # 6. Create deep_agent
@@ -63,7 +73,7 @@ class DeepAgentsRunner:
             model=model,
             tools=tools if tools else None,
             system_prompt=system_prompt,
-            middleware=[skills_middleware] if skill_sources else [],
+            middleware=[skills_middleware] if all_skill_sources else [],
         )
 
     async def run(self, task: str) -> AsyncGenerator[str, None]:
@@ -181,3 +191,25 @@ class DeepAgentsRunner:
             if skill and skill.path:
                 sources.append(skill.path)
         return sources
+
+    def _add_filesystem_skill_to_backend(self, backend: StateBackend, skill_path: str):
+        """Add a filesystem-based skill to the backend.
+
+        Args:
+            backend: StateBackend to add files to
+            skill_path: Absolute path to the skill directory
+        """
+        import os
+        from pathlib import Path
+
+        skill_dir = Path(skill_path)
+        if not skill_dir.exists():
+            return
+
+        # Add all files from the skill directory to the backend
+        for root, dirs, files in os.walk(skill_dir):
+            for filename in files:
+                file_path = Path(root) / filename
+                rel_path = file_path.relative_to(skill_dir.parent)
+                content = file_path.read_text(encoding="utf-8")
+                backend.upload_files([(str(rel_path), content.encode("utf-8"))])

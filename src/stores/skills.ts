@@ -36,12 +36,17 @@ export const useSkillsStore = defineStore('skills', () => {
     }
   }
 
-  async function fetchSkillFiles(id: string): Promise<Record<string, string>> {
+  async function fetchSkillFiles(id: string): Promise<string[]> {
     error.value = null
     try {
-      const skillFiles = await skillsApi.getFiles(id)
-      files.value.set(id, skillFiles)
-      return skillFiles
+      const fileNames = await skillsApi.getFiles(id)
+      // Fetch content for each file
+      const fileContents: Record<string, string> = {}
+      for (const filename of fileNames) {
+        fileContents[filename] = await skillsApi.getFileContent(id, filename)
+      }
+      files.value.set(id, fileContents)
+      return fileNames
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to fetch skill files'
       throw e
@@ -57,6 +62,20 @@ export const useSkillsStore = defineStore('skills', () => {
     fetchSkills,
     fetchSkill,
     fetchSkillFiles,
+    async createSkill(data: Partial<Skill>): Promise<Skill> {
+      loading.value = true
+      error.value = null
+      try {
+        const skill = await skillsApi.create(data)
+        skills.value.push(skill)
+        return skill
+      } catch (e) {
+        error.value = e instanceof Error ? e.message : 'Failed to create skill'
+        throw e
+      } finally {
+        loading.value = false
+      }
+    },
     async updateSkill(id: string, data: Partial<Skill>): Promise<Skill> {
       loading.value = true
       error.value = null

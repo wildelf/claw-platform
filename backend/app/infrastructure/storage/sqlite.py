@@ -235,6 +235,14 @@ class SQLiteStorage:
     # Agent operations
     async def save_agent(self, agent: Agent) -> None:
         async with self.async_session() as session:
+            from sqlalchemy import select
+
+            # Check if agent already exists
+            result = await session.execute(
+                select(AgentModel).where(AgentModel.id == agent.id)
+            )
+            existing = result.scalar_one_or_none()
+
             model = AgentModel(
                 id=agent.id,
                 name=agent.name,
@@ -250,7 +258,15 @@ class SQLiteStorage:
                 created_at=agent.created_at,
                 updated_at=agent.updated_at,
             )
-            session.add(model)
+
+            if existing:
+                # Update existing record
+                for key in ['name', 'description', 'role', 'goal', 'backstory',
+                           'skill_ids', 'tool_ids', 'model_config_id', 'status', 'updated_at']:
+                    setattr(existing, key, getattr(model, key))
+            else:
+                # Insert new record
+                session.add(model)
             await session.commit()
 
     async def get_agent(self, id: str) -> Optional[Agent]:

@@ -12,8 +12,12 @@ const skillsStore = useSkillsStore()
 
 const skillId = computed(() => route.params.id as string)
 const skill = computed(() => skillsStore.currentSkill)
-const files = ref<Record<string, string>>({})
+const fileNames = ref<string[]>([])
+const fileContents = ref<Record<string, string>>({})
 const loadingFiles = ref(false)
+const selectedFile = ref<string | null>(null)
+const fileContent = ref('')
+const showFileModal = ref(false)
 
 onMounted(async () => {
   await skillsStore.fetchSkill(skillId.value)
@@ -23,7 +27,9 @@ onMounted(async () => {
 async function loadFiles() {
   loadingFiles.value = true
   try {
-    files.value = await skillsStore.fetchSkillFiles(skillId.value)
+    const names = await skillsStore.fetchSkillFiles(skillId.value)
+    fileNames.value = names
+    fileContents.value = skillsStore.files.get(skillId.value) || {}
   } catch (e) {
     console.error('Failed to load files:', e)
   } finally {
@@ -47,6 +53,18 @@ function handleEdit() {
 
 function handleBack() {
   router.push('/skills')
+}
+
+function handleViewFile(filename: string) {
+  selectedFile.value = filename
+  fileContent.value = fileContents.value[filename] || ''
+  showFileModal.value = true
+}
+
+function closeFileModal() {
+  showFileModal.value = false
+  selectedFile.value = null
+  fileContent.value = ''
 }
 </script>
 
@@ -115,13 +133,13 @@ function handleBack() {
           <p class="text-gray-500">Loading files...</p>
         </div>
 
-        <div v-else-if="Object.keys(files).length === 0" class="text-center py-4">
+        <div v-else-if="fileNames.length === 0" class="text-center py-4">
           <p class="text-gray-500">No files</p>
         </div>
 
         <div v-else class="space-y-2">
           <div
-            v-for="(content, filename) in files"
+            v-for="filename in fileNames"
             :key="filename"
             class="flex items-center justify-between p-3 bg-gray-50 rounded hover:bg-gray-100"
           >
@@ -129,11 +147,26 @@ function handleBack() {
               <span class="font-medium text-gray-900">{{ filename }}</span>
             </div>
             <div class="flex gap-2">
-              <Button variant="ghost" size="sm">View</Button>
+              <Button variant="ghost" size="sm" @click="handleViewFile(filename)">View</Button>
             </div>
           </div>
         </div>
       </Card>
     </template>
+
+    <!-- File View Modal -->
+    <Teleport to="body">
+      <div v-if="showFileModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] flex flex-col">
+          <div class="flex justify-between items-center p-4 border-b">
+            <h3 class="text-lg font-medium">{{ selectedFile }}</h3>
+            <Button variant="ghost" size="sm" @click="closeFileModal">✕</Button>
+          </div>
+          <div class="flex-1 overflow-auto p-4">
+            <pre class="text-sm font-mono whitespace-pre-wrap">{{ fileContent }}</pre>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

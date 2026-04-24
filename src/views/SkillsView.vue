@@ -29,8 +29,12 @@ function getStatusVariant(status: string): 'success' | 'warning' | 'danger' | 'd
   }
 }
 
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
 function handleView(skillId: string) {
-  console.log('View skill:', skillId)
+  router.push(`/skills/${skillId}`)
 }
 </script>
 

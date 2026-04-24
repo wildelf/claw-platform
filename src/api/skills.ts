@@ -26,12 +26,21 @@ export const skillsApi = {
     await client.delete(`/skills/${id}`)
   },
 
-  async getFiles(id: string): Promise<Record<string, string>> {
+  async getFiles(id: string): Promise<string[]> {
     const { data } = await client.get(`/skills/${id}/files`)
     return data
   },
 
+  async getFileContent(id: string, filename: string): Promise<string> {
+    const { data } = await client.request({
+      url: `/skills/${id}/files/${filename}`,
+      method: 'GET',
+      transformResponse: [(d) => d],
+    })
+    return data
+  },
+
   async saveFile(id: string, filename: string, content: string): Promise<void> {
-    await client.post(`/skills/${id}/files`, { filename, content })
+    await client.put(`/skills/${id}/files/${filename}/content`, { content })
   }
 }
