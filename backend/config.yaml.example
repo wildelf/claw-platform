@@ -1,0 +1,29 @@
+app:
+  name: "claw-platform"
+  debug: true
+  host: "0.0.0.0"
+  port: 8000
+
+storage:
+  type: "sqlite"
+  sqlite:
+    path: "./data/claw.db"
+
+auth:
+  type: "jwt"
+  jwt:
+    secret: "your-secret-key-change-in-production"
+    algorithm: "HS256"
+    expire_minutes: 1440
+
+models:
+  default:
+    type: "openai"
+    model: "MiniMax-M2.7"
+    api_key: "your-api-key-here"
+    base_url: "https://api.minimax.chat/v1"
+
+evolution:
+  generation_threshold: 3
+  auto_evolve: false
+  max_versions: 10
