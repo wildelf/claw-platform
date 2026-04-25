@@ -32,8 +32,10 @@ export const skillsApi = {
   },
 
   async getFileContent(id: string, filename: string): Promise<string> {
+    // Replace / with _SLASH_ to handle paths like scripts/image_processor.py
+    const encodedFilename = filename.replace(/\//g, '_SLASH_')
     const { data } = await client.request({
-      url: `/skills/${id}/files/${filename}`,
+      url: `/skills/${id}/files/${encodedFilename}`,
       method: 'GET',
       transformResponse: [(d) => d],
     })

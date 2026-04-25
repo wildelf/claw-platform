@@ -32,7 +32,6 @@ async function loadFiles() {
     fileContents.value = skillsStore.files.get(skillId.value) || {}
   } catch (e) {
     console.error('Failed to load files:', e)
-    alert('Failed to load files: ' + (e instanceof Error ? e.message : String(e)))
   } finally {
     loadingFiles.value = false
   }

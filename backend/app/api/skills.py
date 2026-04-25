@@ -112,8 +112,11 @@ async def get_skill_file(
     storage: Storage,
 ) -> Response:
     """Get skill file content."""
+    # Replace encoded slashes - FastAPI already decodes, but if the path
+    # was split we need to reconstruct
+    actual_filename = filename.replace('_SLASH_', '/')
     service = SkillService(storage)
-    content = await service.get_file(skill_id, filename)
+    content = await service.get_file(skill_id, actual_filename)
     if content is None:
         raise HTTPException(status_code=404, detail="File not found")
     return Response(content=content, media_type="application/octet-stream")
