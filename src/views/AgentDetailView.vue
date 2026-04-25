@@ -49,6 +49,7 @@ function getStatusVariant(status: string): 'success' | 'warning' | 'danger' | 'd
 
 function getEventIcon(type: string): string {
   switch (type) {
+    case 'preparing': return '⚙️'
     case 'skill_loading': return '📦'
     case 'skill_loaded': return '✅'
     case 'tool_call': return '🔧'
@@ -62,6 +63,7 @@ function getEventIcon(type: string): string {
 
 function getEventLabel(type: string): string {
   switch (type) {
+    case 'preparing': return '准备中'
     case 'skill_loading': return '加载 Skill'
     case 'skill_loaded': return 'Skill 已加载'
     case 'tool_call': return '调用工具'
@@ -147,6 +149,11 @@ function handleEvent(data: any) {
   switch (data.type) {
     case 'start':
       events.value.push({ ...event, content: `开始执行任务: ${data.task}` })
+      break
+
+    case 'preparing':
+      currentEvent.value = { type: 'preparing' }
+      events.value.push({ ...event, content: data.message || '准备中...' })
       break
 
     case 'skill_loading':

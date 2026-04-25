@@ -83,15 +83,38 @@ class DeepAgentsRunner:
         # deepagents expects dict input with 'messages' key for chat models
         input_data = {"messages": [{"role": "user", "content": task}]}
 
-        # Emit skill loading events
-        for skill_id in self.agent.skill_ids:
-            skill = await self.storage.get_skill(skill_id)
-            if skill:
-                yield {
-                    "type": "skill_loading",
-                    "skill_id": str(skill_id),
-                    "skill_name": skill.name,
-                }
+        # Emit preparing event
+        yield {
+            "type": "preparing",
+            "message": "准备执行环境...",
+        }
+
+        # Emit skill loading events for bound skills
+        if self.agent.skill_ids:
+            for skill_id in self.agent.skill_ids:
+                skill = await self.storage.get_skill(skill_id)
+                if skill:
+                    yield {
+                        "type": "skill_loading",
+                        "skill_id": str(skill_id),
+                        "skill_name": skill.name,
+                    }
+                    yield {
+                        "type": "skill_loaded",
+                        "skill_id": str(skill_id),
+                        "skill_name": skill.name,
+                    }
+        else:
+            yield {
+                "type": "preparing",
+                "message": "无绑定的 skills，开始执行...",
+            }
+
+        # Emit thinking event
+        yield {
+            "type": "thinking",
+            "message": "AI 正在思考...",
+        }
 
         # Use astream to get incremental output chunks
         async for chunk in self._runner.astream(input_data):
