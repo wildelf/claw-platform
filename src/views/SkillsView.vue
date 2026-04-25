@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { ref } from 'vue'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Table from '@/components/ui/Table.vue'
 import { useSkillsStore } from '@/stores/skills'
+import { skillsApi } from '@/api/skills'
 
 const skillsStore = useSkillsStore()
 
@@ -13,7 +14,7 @@ const columns = [
   { key: 'status', label: 'Status', width: '120px' },
   { key: 'version', label: 'Version', width: '100px' },
   { key: 'feedback_count', label: 'Feedback', width: '100px' },
-  { key: 'actions', label: 'Actions', width: '150px' }
+  { key: 'actions', label: 'Actions', width: '180px' }
 ]
 
 onMounted(() => {
@@ -32,9 +33,25 @@ function getStatusVariant(status: string): 'success' | 'warning' | 'danger' | 'd
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
+const deleting = ref<string | null>(null)
 
 function handleView(skillId: string) {
   router.push(`/skills/${skillId}`)
+}
+
+async function handleDelete(skillId: string, skillName: string) {
+  if (!confirm(`Delete skill "${skillName}"? This cannot be undone.`)) {
+    return
+  }
+  deleting.value = skillId
+  try {
+    await skillsApi.delete(skillId)
+    await skillsStore.fetchSkills()
+  } catch (e) {
+    alert('Failed to delete skill')
+  } finally {
+    deleting.value = null
+  }
 }
 </script>
 
@@ -65,6 +82,7 @@ function handleView(skillId: string) {
             <router-link :to="`/skills/${row.id}/edit`">
               <Button variant="ghost" size="sm">Edit</Button>
             </router-link>
+            <Button variant="danger" size="sm" @click="handleDelete(row.id, row.name)" :loading="deleting === row.id">Delete</Button>
           </div>
         </template>
       </Table>
