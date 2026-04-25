@@ -2,12 +2,14 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAgentsStore } from '@/stores/agents'
+import { useSkillsStore } from '@/stores/skills'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
 
 const route = useRoute()
 const router = useRouter()
 const agentsStore = useAgentsStore()
+const skillsStore = useSkillsStore()
 
 const form = ref({
   name: '',
@@ -15,6 +17,7 @@ const form = ref({
   role: '',
   goal: '',
   backstory: '',
+  skill_ids: [] as string[]
 })
 
 const loading = ref(false)
@@ -25,7 +28,10 @@ onMounted(async () => {
   loading.value = true
   error.value = ''
   try {
-    await agentsStore.fetchAgent(route.params.id as string)
+    await Promise.all([
+      agentsStore.fetchAgent(route.params.id as string),
+      skillsStore.fetchSkills()
+    ])
     const agent = agentsStore.currentAgent
     if (agent) {
       form.value = {
@@ -34,6 +40,7 @@ onMounted(async () => {
         role: agent.role,
         goal: agent.goal,
         backstory: agent.backstory,
+        skill_ids: agent.skill_ids || [],
       }
     }
   } catch (e) {
@@ -54,6 +61,19 @@ const handleSubmit = async () => {
   } finally {
     saving.value = false
   }
+}
+
+function toggleSkill(skillId: string) {
+  const idx = form.value.skill_ids.indexOf(skillId)
+  if (idx === -1) {
+    form.value.skill_ids.push(skillId)
+  } else {
+    form.value.skill_ids.splice(idx, 1)
+  }
+}
+
+function isSkillSelected(skillId: string) {
+  return form.value.skill_ids.includes(skillId)
 }
 </script>
 
@@ -115,6 +135,30 @@ const handleSubmit = async () => {
             class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
             rows="3"
           />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Skills</label>
+          <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded p-3">
+            <div
+              v-for="skill in skillsStore.skills"
+              :key="skill.id"
+              @click="toggleSkill(skill.id)"
+              class="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-50"
+              :class="isSkillSelected(skill.id) ? 'bg-blue-50' : ''"
+            >
+              <input
+                type="checkbox"
+                :checked="isSkillSelected(skill.id)"
+                class="w-4 h-4"
+                @click.stop
+              />
+              <span>{{ skill.name }}</span>
+            </div>
+            <div v-if="skillsStore.skills.length === 0" class="text-gray-500 text-sm">
+              No skills available
+            </div>
+          </div>
         </div>
 
         <div v-if="error" class="text-red-500 text-sm">{{ error }}</div>
