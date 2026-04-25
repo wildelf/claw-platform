@@ -122,13 +122,20 @@ class DeepAgentsRunner:
                 continue
 
             # Check for tool calls in the chunk
-            tool_info = self._extract_tool_info(chunk)
-            if tool_info:
-                yield {
-                    "type": "tool_call",
-                    "tool": tool_info["name"],
-                    "input": tool_info.get("input"),
-                }
+            tool_calls = self._extract_tool_info(chunk)
+            if tool_calls:
+                # Emit skill_reading event if accessing a skill file
+                skill_event = self._detect_skill_file_access(tool_calls)
+                if skill_event:
+                    yield skill_event
+
+                # Emit tool_call event for each tool
+                for tool_info in tool_calls:
+                    yield {
+                        "type": "tool_call",
+                        "tool": tool_info["name"],
+                        "input": tool_info.get("input"),
+                    }
 
             # Extract content from various chunk formats
             content = self._extract_content(chunk)
@@ -152,27 +159,60 @@ class DeepAgentsRunner:
                     return msg.content
         return None
 
-    def _extract_tool_info(self, chunk) -> dict | None:
+    def _extract_tool_info(self, chunk) -> list[dict] | None:
         """Extract tool call info from a chunk."""
+        tool_calls = []
+
         # Try different formats of tool calls in LangChain/DeepAgents
         # Format 1: {"tool_calls": [...]}
         if "tool_calls" in chunk:
-            tool_calls = chunk["tool_calls"]
-            if tool_calls and len(tool_calls) > 0:
-                call = tool_calls[0]
-                return {
-                    "name": call.get("name", "unknown"),
-                    "input": call.get("input"),
-                }
+            calls = chunk["tool_calls"]
+            if calls and len(calls) > 0:
+                for call in calls:
+                    tool_calls.append({
+                        "name": call.get("name", "unknown"),
+                        "input": call.get("input"),
+                    })
+
         # Format 2: nested in messages
         if "messages" in chunk:
             for msg in chunk["messages"]:
                 if hasattr(msg, 'tool_calls') and msg.tool_calls:
-                    call = msg.tool_calls[0]
-                    return {
-                        "name": call.get("name", "unknown"),
-                        "input": call.get("input"),
-                    }
+                    for call in msg.tool_calls:
+                        tool_calls.append({
+                            "name": call.get("name", "unknown"),
+                            "input": call.get("input"),
+                        })
+
+        return tool_calls if tool_calls else None
+
+    def _detect_skill_file_access(self, tool_calls: list[dict]) -> dict | None:
+        """Detect if a tool call is accessing a skill file.
+
+        Returns skill event info if a skill file is being read.
+        """
+        for call in tool_calls:
+            name = call.get("name", "")
+            if name == "read_file":
+                path = call.get("input", {})
+                if isinstance(path, dict):
+                    file_path = path.get("file_path", "")
+                else:
+                    file_path = str(path)
+
+                # Check if reading a SKILL.md file
+                if "SKILL.md" in file_path or "/skills/" in file_path:
+                    # Extract skill name from path
+                    # Path format: /skills/{skill_id}/SKILL.md or similar
+                    parts = file_path.split("/")
+                    for i, part in enumerate(parts):
+                        if part == "skills" and i + 1 < len(parts):
+                            skill_id = parts[i + 1]
+                            return {
+                                "type": "skill_reading",
+                                "skill_id": skill_id,
+                                "file": file_path.split("/")[-1],
+                            }
         return None
 
     async def stop(self):

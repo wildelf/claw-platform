@@ -52,6 +52,7 @@ function getEventIcon(type: string): string {
     case 'preparing': return '⚙️'
     case 'skill_loading': return '📦'
     case 'skill_loaded': return '✅'
+    case 'skill_reading': return '📖'
     case 'tool_call': return '🔧'
     case 'content': return '💬'
     case 'thinking': return '🤔'
@@ -66,6 +67,7 @@ function getEventLabel(type: string): string {
     case 'preparing': return '准备中'
     case 'skill_loading': return '加载 Skill'
     case 'skill_loaded': return 'Skill 已加载'
+    case 'skill_reading': return '读取 Skill'
     case 'tool_call': return '调用工具'
     case 'content': return '输出'
     case 'thinking': return '思考中'
@@ -171,6 +173,16 @@ function handleEvent(data: any) {
         ...event,
         type: 'skill_loaded',
         skillName: data.skill_name
+      })
+      break
+
+    case 'skill_reading':
+      currentEvent.value = { type: 'skill_reading', skillName: data.skill_id }
+      events.value.push({
+        ...event,
+        type: 'skill_reading',
+        skillName: data.skill_id,
+        content: `读取 Skill 文件: ${data.file}`
       })
       break
 
