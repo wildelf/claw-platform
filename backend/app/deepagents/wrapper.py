@@ -9,7 +9,7 @@ import re
 from typing import Any, AsyncGenerator, Optional
 
 from deepagents import create_deep_agent
-from deepagents.middleware import SkillsMiddleware
+from deepagents.graph import create_deep_agent
 from deepagents.backends.state import StateBackend
 
 from app.domain.agent import Agent
@@ -43,12 +43,8 @@ class DeepAgentsRunner:
 
     async def create(self):
         """Create deepagents runner instance."""
-        # 1. Load skills from storage into StateBackend
-        backend = await self._create_backend()
-
-        # Add extra skill paths (filesystem-based skills)
-        for skill_path in self._extra_skill_paths:
-            self._add_filesystem_skill_to_backend(backend, skill_path)
+        # 1. Get skill sources (temp directories with skill files)
+        skill_sources = await self._get_skill_sources()
 
         # 2. Load tools
         tools = await self._load_tools()
@@ -59,21 +55,20 @@ class DeepAgentsRunner:
         # 4. Build system prompt from agent config
         system_prompt = self._system_prompt_override or self._build_system_prompt()
 
-        # 5. Create Skills middleware
-        skill_sources = await self._get_skill_sources()
-        # Also add extra skill paths as sources
-        all_skill_sources = skill_sources + self._extra_skill_paths
-        skills_middleware = SkillsMiddleware(
-            backend=backend,
-            sources=all_skill_sources,
-        )
+        # 5. Create backend - use FilesystemBackend for skills if available
+        if skill_sources:
+            from deepagents.backends.filesystem import FilesystemBackend
+            backend = FilesystemBackend(root_dir=skill_sources[0])
+        else:
+            backend = StateBackend()
 
-        # 6. Create deep_agent
+        # 6. Create deep_agent with skills
         self._runner = create_deep_agent(
             model=model,
             tools=tools if tools else None,
             system_prompt=system_prompt,
-            middleware=[skills_middleware] if all_skill_sources else [],
+            skills=skill_sources if skill_sources else None,
+            backend=backend,
         )
 
     async def run(self, task: str) -> AsyncGenerator[str, None]:
@@ -111,6 +106,32 @@ class DeepAgentsRunner:
             await adapter.close()
         self._mcp_adapters.clear()
         self._runner = None
+
+    async def _load_agent_skills_to_backend(self, backend):
+        """Load agent's skills from database into backend.
+
+        Args:
+            backend: StateBackend to load skills into
+        """
+        from deepagents.backends.state import StateBackend
+
+        if not isinstance(backend, StateBackend):
+            return
+
+        for skill_id in self.agent.skill_ids:
+            skill = await self.storage.get_skill(skill_id)
+            if not skill:
+                continue
+            # List all files for this skill
+            files = await self.storage.list_skill_files(str(skill_id))
+            for filename in files:
+                content = await self.storage.get_skill_file(str(skill_id), filename)
+                if content:
+                    # Path format: /skills/{skill_id}/{filename}
+                    path = f"/skills/{skill_id}/{filename}"
+                    if isinstance(content, str):
+                        content = content.encode("utf-8")
+                    backend.upload_files([(path, content)])
 
     async def _create_backend(self) -> StateBackend:
         """Create StateBackend from platform storage."""
@@ -184,13 +205,43 @@ class DeepAgentsRunner:
         return "\n\n".join(parts)
 
     async def _get_skill_sources(self) -> list[str]:
-        """Get skill sources from agent's skills."""
+        """Get skill sources from agent's skills.
+
+        Exports skill files to a temp directory so deepagents can read them.
+        The directory structure follows deepagents conventions: skills are at
+        /skills/{skill_id}/SKILL.md.
+        """
+        import tempfile
+        from pathlib import Path
+
         sources = []
+        temp_dir = Path(tempfile.mkdtemp(prefix="skills_"))
+        skills_dir = temp_dir / "skills"
+        skills_dir.mkdir(parents=True, exist_ok=True)
+
         for skill_id in self.agent.skill_ids:
             skill = await self.storage.get_skill(skill_id)
-            if skill and skill.path:
-                sources.append(skill.path)
-        return sources
+            if not skill:
+                continue
+
+            # Create skill directory: /temp/skills_xxx/skills/{skill_id}/
+            skill_dir = skills_dir / skill_id
+            skill_dir.mkdir(parents=True, exist_ok=True)
+
+            # Export all skill files to temp directory
+            files = await self.storage.list_skill_files(str(skill_id))
+            for filename in files:
+                content = await self.storage.get_skill_file(str(skill_id), filename)
+                if content:
+                    file_path = skill_dir / filename
+                    file_path.parent.mkdir(parents=True, exist_ok=True)
+                    if isinstance(content, bytes):
+                        file_path.write_bytes(content)
+                    else:
+                        file_path.write_text(content, encoding="utf-8")
+
+        # Return the temp/skills directory as the source
+        return [str(skills_dir)]
 
     def _add_filesystem_skill_to_backend(self, backend: StateBackend, skill_path: str):
         """Add a filesystem-based skill to the backend.
