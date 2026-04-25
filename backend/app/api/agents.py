@@ -144,12 +144,18 @@ async def run_agent(
         task = request.task
         try:
             yield f"data: {json.dumps({'type': 'start', 'task': task})}\n\n"
-            async for chunk in runner.run(task):
-                if chunk:
-                    # Remove thinking tags from content
-                    content = chunk.replace("<think>", "").replace("</think>", "")
+            async for event in runner.run(task):
+                # Handle the new event dict format
+                event_type = event.get("type", "content")
+                if event_type == "content":
+                    content = event.get("content", "")
+                    # Remove thinking tags
+                    content = content.replace("<think>", "").replace("</think>", "")
                     if content.strip():
                         yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
+                else:
+                    # Forward other event types as-is
+                    yield f"data: {json.dumps(event)}\n\n"
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
@@ -192,12 +198,18 @@ async def run_agent_with_feedback(
         task = request.task
         try:
             yield f"data: {json.dumps({'type': 'start', 'task': task})}\n\n"
-            async for chunk in runner.run(task):
-                if chunk:
-                    # Remove thinking tags from content
-                    content = chunk.replace("<think>", "").replace("</think>", "")
+            async for event in runner.run(task):
+                # Handle the new event dict format
+                event_type = event.get("type", "content")
+                if event_type == "content":
+                    content = event.get("content", "")
+                    # Remove thinking tags
+                    content = content.replace("<think>", "").replace("</think>", "")
                     if content.strip():
                         yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
+                else:
+                    # Forward other event types as-is
+                    yield f"data: {json.dumps(event)}\n\n"
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"

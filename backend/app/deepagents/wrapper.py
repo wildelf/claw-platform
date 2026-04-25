@@ -71,11 +71,11 @@ class DeepAgentsRunner:
             backend=backend,
         )
 
-    async def run(self, task: str) -> AsyncGenerator[str, None]:
+    async def run(self, task: str) -> AsyncGenerator[dict, None]:
         """Run agent task.
 
         Yields:
-            String chunks from agent execution.
+            Event dicts with type and data.
         """
         if not self._runner:
             await self.create()
@@ -83,21 +83,74 @@ class DeepAgentsRunner:
         # deepagents expects dict input with 'messages' key for chat models
         input_data = {"messages": [{"role": "user", "content": task}]}
 
+        # Emit skill loading events
+        for skill_id in self.agent.skill_ids:
+            skill = await self.storage.get_skill(skill_id)
+            if skill:
+                yield {
+                    "type": "skill_loading",
+                    "skill_id": str(skill_id),
+                    "skill_name": skill.name,
+                }
+
         # Use astream to get incremental output chunks
         async for chunk in self._runner.astream(input_data):
             if not isinstance(chunk, dict):
                 continue
+
+            # Check for tool calls in the chunk
+            tool_info = self._extract_tool_info(chunk)
+            if tool_info:
+                yield {
+                    "type": "tool_call",
+                    "tool": tool_info["name"],
+                    "input": tool_info.get("input"),
+                }
+
             # Extract content from various chunk formats
-            if "model" in chunk:
-                model_data = chunk["model"]
-                if isinstance(model_data, dict) and "messages" in model_data:
-                    for msg in model_data["messages"]:
-                        if hasattr(msg, 'content') and msg.content:
-                            yield msg.content
-            elif "messages" in chunk:
-                for msg in chunk["messages"]:
+            content = self._extract_content(chunk)
+            if content:
+                yield {
+                    "type": "content",
+                    "content": content,
+                }
+
+    def _extract_content(self, chunk) -> str | None:
+        """Extract text content from a chunk."""
+        if "model" in chunk:
+            model_data = chunk["model"]
+            if isinstance(model_data, dict) and "messages" in model_data:
+                for msg in model_data["messages"]:
                     if hasattr(msg, 'content') and msg.content:
-                        yield msg.content
+                        return msg.content
+        elif "messages" in chunk:
+            for msg in chunk["messages"]:
+                if hasattr(msg, 'content') and msg.content:
+                    return msg.content
+        return None
+
+    def _extract_tool_info(self, chunk) -> dict | None:
+        """Extract tool call info from a chunk."""
+        # Try different formats of tool calls in LangChain/DeepAgents
+        # Format 1: {"tool_calls": [...]}
+        if "tool_calls" in chunk:
+            tool_calls = chunk["tool_calls"]
+            if tool_calls and len(tool_calls) > 0:
+                call = tool_calls[0]
+                return {
+                    "name": call.get("name", "unknown"),
+                    "input": call.get("input"),
+                }
+        # Format 2: nested in messages
+        if "messages" in chunk:
+            for msg in chunk["messages"]:
+                if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                    call = msg.tool_calls[0]
+                    return {
+                        "name": call.get("name", "unknown"),
+                        "input": call.get("input"),
+                    }
+        return None
 
     async def stop(self):
         """Stop running agent and cleanup."""
