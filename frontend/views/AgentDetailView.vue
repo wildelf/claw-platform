@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
@@ -39,6 +39,11 @@ const events = ref<Array<{
 const thinkingExpanded = ref(false)
 const thinkingContent = ref('')
 
+// Image state
+const generatedImages = ref<Array<{url: string, alt: string}>>([])
+const imageModalOpen = ref(false)
+const selectedImage = ref<{url: string, alt: string} | null>(null)
+
 onMounted(async () => {
   await agentsStore.fetchAgent(agentId.value)
   await modelsStore.fetchModels()
@@ -46,6 +51,11 @@ onMounted(async () => {
   if (agent.value?.model_config_id) {
     selectedModelId.value = agent.value.model_config_id
   }
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
 })
 
 function getStatusVariant(status: string): 'success' | 'warning' | 'danger' | 'default' {
@@ -160,8 +170,22 @@ function handleEvent(data: any) {
   }
 
   switch (data.type) {
+    case 'image':
+      if (data.url) {
+        generatedImages.value.push({ url: data.url, alt: data.alt || '' })
+        events.value.push({
+          type: 'image',
+          url: data.url,
+          alt: data.alt || '',
+          timestamp: new Date()
+        })
+      }
+      break
+
     case 'start':
-      events.value.push({ ...event, content: `开始执行任务: ${data.task}` })
+      // Clear previous images on new run
+      generatedImages.value = []
+      events.value.push({ ...event, content: `开始执行任务: ${data.task}`, model: data.model })
       break
 
     case 'preparing':
@@ -264,6 +288,17 @@ function handleImageSelect(event: Event) {
 
 function removeImage(index: number) {
   uploadedImages.value.splice(index, 1)
+}
+
+function openImageModal(img: {url: string, alt: string}) {
+  selectedImage.value = img
+  imageModalOpen.value = true
+}
+
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && imageModalOpen.value) {
+    imageModalOpen.value = false
+  }
 }
 </script>
 
@@ -442,12 +477,61 @@ function removeImage(index: number) {
           </div>
 
           <!-- Output -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Output</label>
-            <pre ref="outputRef" class="bg-gray-100 p-4 rounded text-sm overflow-x-auto max-h-96 whitespace-pre-wrap">Waiting for response...</pre>
+          <div class="space-y-4">
+            <!-- Text Output -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Output</label>
+              <pre ref="outputRef" class="bg-gray-100 p-4 rounded text-sm overflow-x-auto max-h-96 whitespace-pre-wrap">Waiting for response...</pre>
+            </div>
+
+            <!-- Generated Images -->
+            <div v-if="generatedImages.length > 0" class="space-y-2">
+              <label class="block text-sm font-medium text-gray-700">Generated Images</label>
+              <div class="flex flex-wrap gap-3">
+                <div
+                  v-for="(img, idx) in generatedImages"
+                  :key="idx"
+                  class="relative group cursor-pointer"
+                  @click="openImageModal(img)"
+                >
+                  <img
+                    :src="img.url"
+                    :alt="img.alt"
+                    class="max-w-xs rounded border border-gray-300 hover:border-primary-500 transition-colors"
+                  />
+                  <div class="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 rounded-b">
+                    {{ img.alt || 'Generated image' }}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </Card>
+
+      <!-- Image Modal -->
+      <div
+        v-if="imageModalOpen"
+        class="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+        @click="imageModalOpen = false"
+      >
+        <div class="max-w-4xl max-h-full p-4 relative">
+          <img
+            v-if="selectedImage"
+            :src="selectedImage.url"
+            :alt="selectedImage.alt"
+            class="max-w-full max-h-screen object-contain"
+            @click.stop
+          />
+          <p v-if="selectedImage?.alt" class="text-white text-center mt-2">{{ selectedImage.alt }}</p>
+          <button
+            class="absolute top-4 right-4 text-white text-2xl hover:text-gray-300"
+            @click="imageModalOpen = false"
+          >
+            ×
+          </button>
+        </div>
+      </div>
     </template>
   </div>
 </template>
