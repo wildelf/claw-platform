@@ -131,7 +131,6 @@ async def run_agent(
     """Run agent task.
 
     Executes the agent using deepagents and streams results.
-    Accepts optional images as base64 encoded strings.
     """
     from app.deepagents.wrapper import DeepAgentsRunner
 
@@ -146,31 +145,19 @@ async def run_agent(
     async def stream_events():
         task = request.task
 
+        # Determine model name for start event
+        model_name = "unknown"
+        if request.model_config_id:
+            model_config = await storage.get_model_config(request.model_config_id)
+            if model_config:
+                model_name = model_config.model
+        elif agent.model_config_id:
+            model_config = await storage.get_model_config(agent.model_config_id)
+            if model_config:
+                model_name = model_config.model
 
-@router.post("/{agent_id}/run")
-async def run_agent(
-    agent_id: str,
-    request: RunAgentRequest,
-    storage: Storage,
-):
-    """Run agent task.
-
-    Executes the agent using deepagents and streams results.
-    """
-    from app.deepagents.wrapper import DeepAgentsRunner
-
-    service = AgentService(storage)
-    agent = await service.get(agent_id)
-    if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
-
-    runner = DeepAgentsRunner(agent, storage, override_model_config_id=request.model_config_id)
-    await runner.create()
-
-    async def stream_events():
-        task = request.task
         try:
-            yield f"data: {json.dumps({'type': 'start', 'task': task})}\n\n"
+            yield f"data: {json.dumps({'type': 'start', 'task': task, 'model': model_name})}\n\n"
             async for event in runner.run(task, images=request.images):
                 # Handle the new event dict format
                 event_type = event.get("type", "content")
@@ -223,8 +210,20 @@ async def run_agent_with_feedback(
 
     async def stream_events():
         task = request.task
+
+        # Determine model name for start event
+        model_name = "unknown"
+        if request.model_config_id:
+            model_config = await storage.get_model_config(request.model_config_id)
+            if model_config:
+                model_name = model_config.model
+        elif agent.model_config_id:
+            model_config = await storage.get_model_config(agent.model_config_id)
+            if model_config:
+                model_name = model_config.model
+
         try:
-            yield f"data: {json.dumps({'type': 'start', 'task': task})}\n\n"
+            yield f"data: {json.dumps({'type': 'start', 'task': task, 'model': model_name})}\n\n"
             async for event in runner.run(task, images=request.images):
                 # Handle the new event dict format
                 event_type = event.get("type", "content")

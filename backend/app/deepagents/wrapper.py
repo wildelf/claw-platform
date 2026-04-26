@@ -188,6 +188,14 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
                             "type": "content",
                             "content": content,
                         }
+                        # Extract and yield image events
+                        images = self._extract_images_from_content(content)
+                        for img in images:
+                            yield {
+                                "type": "image",
+                                "url": img["url"],
+                                "alt": img["alt"],
+                            }
                 elif mode == "updates":
                     # Node/task updates - extract relevant info
                     update = self._extract_update_content(data)
@@ -217,6 +225,14 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
                         "type": "content",
                         "content": content,
                     }
+                    # Extract and yield image events
+                    images = self._extract_images_from_content(content)
+                    for img in images:
+                        yield {
+                            "type": "image",
+                            "url": img["url"],
+                            "alt": img["alt"],
+                        }
 
     def _extract_content(self, chunk) -> str | None:
         """Extract text content from a chunk."""
@@ -313,6 +329,16 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
                                 "file": file_path.split("/")[-1],
                             }
         return None
+
+    def _extract_images_from_content(self, content: str) -> list[dict]:
+        """Extract image URLs from content (markdown image syntax)."""
+        images = []
+        # Match markdown image: ![alt](url)
+        pattern = r'!\[([^\]]*)\]\(([^)]+)\)'
+        matches = re.findall(pattern, content)
+        for alt, url in matches:
+            images.append({"url": url, "alt": alt})
+        return images
 
     async def stop(self):
         """Stop running agent and cleanup."""
