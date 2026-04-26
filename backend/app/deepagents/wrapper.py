@@ -5,12 +5,17 @@ agent execution.
 """
 
 import asyncio
+import base64
 import re
+import tempfile
+from pathlib import Path
 from typing import Any, AsyncGenerator, Optional
 
 from deepagents import create_deep_agent
 from deepagents.graph import create_deep_agent
 from deepagents.backends.state import StateBackend
+
+from app.deepagents.skills_middleware import SkillEventMiddleware
 
 from app.domain.agent import Agent
 from app.domain.tool import Tool, ToolType
@@ -33,6 +38,7 @@ class DeepAgentsRunner:
         storage: SQLiteStorage,
         extra_skill_paths: list[str] | None = None,
         system_prompt_override: str | None = None,
+        override_model_config_id: str | None = None,
     ):
         self.agent = agent
         self.storage = storage
@@ -40,29 +46,38 @@ class DeepAgentsRunner:
         self._mcp_adapters: dict[str, MCPAdapter] = {}
         self._extra_skill_paths = extra_skill_paths or []
         self._system_prompt_override = system_prompt_override
+        self._skill_event_queue: asyncio.Queue[dict] | None = None
+        self._override_model_config_id = override_model_config_id
 
     async def create(self):
         """Create deepagents runner instance."""
-        # 1. Get skill sources (temp directories with skill files)
-        skill_sources = await self._get_skill_sources()
+        # 1. Create unified workspace directory first
+        workspace_dir = Path(tempfile.mkdtemp(prefix="agent_workspace_"))
+        skills_dir = workspace_dir / "skills"
+        skills_dir.mkdir(parents=True, exist_ok=True)
 
-        # 2. Load tools
+        # 2. Get skill sources using the same workspace directory
+        skill_sources = await self._get_skill_sources(workspace_dir)
+
+        # 3. Load tools
         tools = await self._load_tools()
 
-        # 3. Resolve model configuration
+        # 4. Resolve model configuration
         model = await self._resolve_model()
 
-        # 4. Build system prompt from agent config
+        # 5. Build system prompt from agent config
         system_prompt = self._system_prompt_override or self._build_system_prompt()
 
-        # 5. Create backend - use FilesystemBackend for skills if available
-        if skill_sources:
-            from deepagents.backends.filesystem import FilesystemBackend
-            backend = FilesystemBackend(root_dir=skill_sources[0])
-        else:
-            backend = StateBackend()
+        # 6. Create backend - single FilesystemBackend with virtual_mode=True for proper path resolution
+        from deepagents.backends.filesystem import FilesystemBackend
 
-        # 6. Create deep_agent with skills
+        # Use virtual_mode=True so paths like /images/xxx.png resolve to {workspace_dir}/images/xxx.png
+        backend = FilesystemBackend(root_dir=str(workspace_dir), virtual_mode=True)
+
+        # Store for later use
+        self._workspace_dir = workspace_dir
+
+        # 7. Create deep_agent with skills
         self._runner = create_deep_agent(
             model=model,
             tools=tools if tools else None,
@@ -70,9 +85,14 @@ class DeepAgentsRunner:
             skills=skill_sources if skill_sources else None,
             backend=backend,
         )
+        self._backend = backend
 
-    async def run(self, task: str) -> AsyncGenerator[dict, None]:
+    async def run(self, task: str, images: list[str] = None) -> AsyncGenerator[dict, None]:
         """Run agent task.
+
+        Args:
+            task: The task description.
+            images: Optional list of base64 encoded images.
 
         Yields:
             Event dicts with type and data.
@@ -80,8 +100,38 @@ class DeepAgentsRunner:
         if not self._runner:
             await self.create()
 
-        # deepagents expects dict input with 'messages' key for chat models
-        input_data = {"messages": [{"role": "user", "content": task}]}
+        # Handle images - upload to backend with virtual path
+        image_paths: list[str] = []
+        if images:
+            for idx, img_data in enumerate(images):
+                # Decode base64 image
+                if img_data.startswith("data:"):
+                    # Format: data:image/png;base64,<base64_data>
+                    base64_data = img_data.split(",", 1)[1]
+                    media_type = img_data.split(";")[0].replace("data:", "")
+                    ext = "png" if "png" in media_type else "jpg"
+                else:
+                    base64_data = img_data
+                    ext = "png"
+
+                image_filename = f"uploaded_image_{idx}.{ext}"
+                image_content = base64.b64decode(base64_data)
+
+                # Upload to backend using virtual path - with virtual_mode=True,
+                # /images/xxx.png resolves to {workspace_dir}/images/xxx.png
+                virtual_path = f"/images/{image_filename}"
+                self._backend.upload_files([(virtual_path, image_content)])
+                image_paths.append(virtual_path)
+
+            # Prepend image paths to task
+            image_desc = "\n".join([f"- Image {i+1}: {path}" for i, path in enumerate(image_paths)])
+            task_with_images = f"""{task}
+
+The user has uploaded {len(image_paths)} image(s) for you to process. You MUST use these exact file paths to read the images:
+{image_desc}
+
+IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), use the exact file path shown above with your image processing tool. Do NOT ask the user for image paths - they have already been provided."""
+            input_data = {"messages": [{"role": "user", "content": task_with_images}]}
 
         # Emit preparing event
         yield {
@@ -116,34 +166,57 @@ class DeepAgentsRunner:
             "message": "AI 正在思考...",
         }
 
-        # Use astream to get incremental output chunks
-        async for chunk in self._runner.astream(input_data):
-            if not isinstance(chunk, dict):
-                continue
+        # Use astream with multiple stream modes
+        # - "custom": for skill events via StreamWriter
+        # - "messages": for LLM token-by-token output
+        # - "updates": for node/task updates
+        modes = ["custom", "messages", "updates"]
 
-            # Check for tool calls in the chunk
-            tool_calls = self._extract_tool_info(chunk)
-            if tool_calls:
-                # Emit skill_reading event if accessing a skill file
-                skill_event = self._detect_skill_file_access(tool_calls)
-                if skill_event:
-                    yield skill_event
+        async for chunk in self._runner.astream(input_data, stream_mode=modes):
+            # Handle tuple format when multiple modes are enabled: (mode, data)
+            if isinstance(chunk, tuple) and len(chunk) == 2:
+                mode, data = chunk
+                if mode == "custom":
+                    # Custom events from StreamWriter (skill events, etc.)
+                    if isinstance(data, dict):
+                        yield data
+                elif mode == "messages":
+                    # LLM token messages - extract content
+                    content = self._extract_message_content(data)
+                    if content:
+                        yield {
+                            "type": "content",
+                            "content": content,
+                        }
+                elif mode == "updates":
+                    # Node/task updates - extract relevant info
+                    update = self._extract_update_content(data)
+                    if update:
+                        yield {
+                            "type": "update",
+                            "data": update,
+                        }
+            elif isinstance(chunk, dict):
+                # Fallback for single mode or direct dict
+                tool_calls = self._extract_tool_info(chunk)
+                if tool_calls:
+                    skill_event = self._detect_skill_file_access(tool_calls)
+                    if skill_event:
+                        yield skill_event
 
-                # Emit tool_call event for each tool
-                for tool_info in tool_calls:
+                    for tool_info in tool_calls:
+                        yield {
+                            "type": "tool_call",
+                            "tool": tool_info["name"],
+                            "input": tool_info.get("input"),
+                        }
+
+                content = self._extract_content(chunk)
+                if content:
                     yield {
-                        "type": "tool_call",
-                        "tool": tool_info["name"],
-                        "input": tool_info.get("input"),
+                        "type": "content",
+                        "content": content,
                     }
-
-            # Extract content from various chunk formats
-            content = self._extract_content(chunk)
-            if content:
-                yield {
-                    "type": "content",
-                    "content": content,
-                }
 
     def _extract_content(self, chunk) -> str | None:
         """Extract text content from a chunk."""
@@ -158,6 +231,32 @@ class DeepAgentsRunner:
                 if hasattr(msg, 'content') and msg.content:
                     return msg.content
         return None
+
+    def _extract_message_content(self, data) -> str | None:
+        """Extract content from LLM message chunks in messages mode."""
+        if data is None:
+            return None
+        # messages mode emits LLM token tuples (token, metadata)
+        if isinstance(data, tuple) and len(data) >= 1:
+            token = data[0]
+            if isinstance(token, str):
+                return token
+            elif hasattr(token, 'content'):
+                return str(token.content)
+        elif isinstance(data, str):
+            return data
+        return None
+
+    def _extract_update_content(self, data) -> Any | None:
+        """Extract content from node/task updates in updates mode."""
+        if data is None:
+            return None
+        # Updates can be node names, task results, etc.
+        if isinstance(data, dict):
+            return data
+        elif isinstance(data, str):
+            return {"update": data}
+        return data
 
     def _extract_tool_info(self, chunk) -> list[dict] | None:
         """Extract tool call info from a chunk."""
@@ -276,29 +375,35 @@ class DeepAgentsRunner:
         return tools
 
     async def _resolve_model(self):
-        """Resolve model from agent configuration.
-
-        Returns a LangChain chat model instance compatible with deepagents.
-        For custom base_url, we need to use the raw ChatOpenAI/ChatAnthropic
-        and pass to create_deep_agent instead of a string.
-        """
+        """Resolve model from agent configuration with override support."""
         from langchain_openai import ChatOpenAI
 
-        if not self.agent.model_config_id:
-            # Use default model from config
-            default_model = settings.models.default
-            if default_model.base_url:
-                return ChatOpenAI(
-                    model=default_model.model,
-                    api_key=default_model.api_key,
-                    base_url=default_model.base_url,
-                )
-            return f"openai:{default_model.model}"
+        # Priority 1: Temporary override
+        if self._override_model_config_id:
+            config = await self.storage.get_model_config(self._override_model_config_id)
+            if config:
+                return self._create_model_from_config(config)
+            raise ValueError(f"Override model config not found: {self._override_model_config_id}")
 
-        config = await self.storage.get_model_config(self.agent.model_config_id)
-        if not config:
-            raise ValueError(f"Model config not found: {self.agent.model_config_id}")
+        # Priority 2: Agent default model
+        if self.agent.model_config_id:
+            config = await self.storage.get_model_config(self.agent.model_config_id)
+            if config:
+                return self._create_model_from_config(config)
 
+        # Priority 3: System default
+        default_model = settings.models.default
+        if default_model.base_url:
+            return ChatOpenAI(
+                model=default_model.model,
+                api_key=default_model.api_key,
+                base_url=default_model.base_url,
+            )
+        return f"openai:{default_model.model}"
+
+    def _create_model_from_config(self, config):
+        """Create LangChain model from ModelConfig."""
+        from langchain_openai import ChatOpenAI
         if config.base_url:
             return ChatOpenAI(
                 model=config.model,
@@ -320,19 +425,19 @@ class DeepAgentsRunner:
 
         return "\n\n".join(parts)
 
-    async def _get_skill_sources(self) -> list[str]:
+    async def _get_skill_sources(self, workspace_dir: Path) -> list[str]:
         """Get skill sources from agent's skills.
 
         Exports skill files to a temp directory so deepagents can read them.
         The directory structure follows deepagents conventions: skills are at
         /skills/{skill_id}/SKILL.md.
+
+        Args:
+            workspace_dir: The workspace directory to store skills under.
         """
-        import tempfile
         from pathlib import Path
 
-        sources = []
-        temp_dir = Path(tempfile.mkdtemp(prefix="skills_"))
-        skills_dir = temp_dir / "skills"
+        skills_dir = workspace_dir / "skills"
         skills_dir.mkdir(parents=True, exist_ok=True)
 
         for skill_id in self.agent.skill_ids:

@@ -140,7 +140,7 @@ async def run_agent(
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    runner = DeepAgentsRunner(agent, storage)
+    runner = DeepAgentsRunner(agent, storage, override_model_config_id=request.model_config_id)
     await runner.create()
 
     async def stream_events():
@@ -164,7 +164,7 @@ async def run_agent(
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    runner = DeepAgentsRunner(agent, storage)
+    runner = DeepAgentsRunner(agent, storage, override_model_config_id=request.model_config_id)
     await runner.create()
 
     async def stream_events():
@@ -218,7 +218,7 @@ async def run_agent_with_feedback(
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    runner = DeepAgentsRunner(agent, storage)
+    runner = DeepAgentsRunner(agent, storage, override_model_config_id=request.model_config_id)
     await runner.create()
 
     async def stream_events():
