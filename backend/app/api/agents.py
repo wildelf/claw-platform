@@ -118,6 +118,33 @@ async def delete_agent(
 class RunAgentRequest(BaseModel):
     """Payload for running an agent."""
     task: str
+    images: list[str] = Field(default_factory=list, description="Base64 encoded images")
+    model_config_id: str | None = Field(default=None, description="临时覆盖默认模型")
+
+
+@router.post("/{agent_id}/run")
+async def run_agent(
+    agent_id: str,
+    request: RunAgentRequest,
+    storage: Storage,
+):
+    """Run agent task.
+
+    Executes the agent using deepagents and streams results.
+    Accepts optional images as base64 encoded strings.
+    """
+    from app.deepagents.wrapper import DeepAgentsRunner
+
+    service = AgentService(storage)
+    agent = await service.get(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    runner = DeepAgentsRunner(agent, storage)
+    await runner.create()
+
+    async def stream_events():
+        task = request.task
 
 
 @router.post("/{agent_id}/run")
@@ -144,7 +171,7 @@ async def run_agent(
         task = request.task
         try:
             yield f"data: {json.dumps({'type': 'start', 'task': task})}\n\n"
-            async for event in runner.run(task):
+            async for event in runner.run(task, images=request.images):
                 # Handle the new event dict format
                 event_type = event.get("type", "content")
                 if event_type == "content":
@@ -198,7 +225,7 @@ async def run_agent_with_feedback(
         task = request.task
         try:
             yield f"data: {json.dumps({'type': 'start', 'task': task})}\n\n"
-            async for event in runner.run(task):
+            async for event in runner.run(task, images=request.images):
                 # Handle the new event dict format
                 event_type = event.get("type", "content")
                 if event_type == "content":
