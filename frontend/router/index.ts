@@ -64,6 +64,21 @@ const router = createRouter({
       component: () => import('@/views/FeedbackView.vue')
     },
     {
+      path: '/models',
+      name: 'models',
+      component: () => import('@/views/ModelsView.vue')
+    },
+    {
+      path: '/models/create',
+      name: 'model-create',
+      component: () => import('@/views/ModelCreateView.vue')
+    },
+    {
+      path: '/models/:id/edit',
+      name: 'model-edit',
+      component: () => import('@/views/ModelEditView.vue')
+    },
+    {
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue')
