@@ -13,3 +13,8 @@ venv/
 config.yaml
 !.env.example
 .worktrees
+node_modules/
+.DS_Store
+*.db
+.coverage
+dist/
