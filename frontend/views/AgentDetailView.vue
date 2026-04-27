@@ -78,6 +78,7 @@ function getEventIcon(type: string): string {
     case 'thinking': return '🤔'
     case 'done': return '🎉'
     case 'error': return '❌'
+    case 'image': return '🖼️'
     default: return '📝'
   }
 }
@@ -231,8 +232,8 @@ function handleEvent(data: any) {
       break
 
     case 'thinking':
-      thinkingContent.value += data.content || ''
-      events.value.push({ ...event, content: data.content })
+      thinkingContent.value += data.message || ''
+      events.value.push({ ...event, content: data.message })
       break
 
     case 'content':
@@ -290,7 +291,20 @@ function removeImage(index: number) {
   uploadedImages.value.splice(index, 1)
 }
 
+function isSafeImageUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return ['http:', 'https:'].includes(parsed.protocol)
+  } catch {
+    return false
+  }
+}
+
 function openImageModal(img: {url: string, alt: string}) {
+  if (!isSafeImageUrl(img.url)) {
+    console.error('Unsafe image URL blocked:', img.url)
+    return
+  }
   selectedImage.value = img
   imageModalOpen.value = true
 }
