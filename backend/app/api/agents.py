@@ -139,8 +139,17 @@ async def run_agent(
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
+    # Validate model_config_id if provided
+    if request.model_config_id:
+        config = await storage.get_model_config(request.model_config_id)
+        if not config:
+            raise HTTPException(status_code=400, detail="Model config not found")
+
     runner = DeepAgentsRunner(agent, storage, override_model_config_id=request.model_config_id)
-    await runner.create()
+    try:
+        await runner.create()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     async def stream_events():
         task = request.task
@@ -205,8 +214,17 @@ async def run_agent_with_feedback(
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
+    # Validate model_config_id if provided
+    if request.model_config_id:
+        config = await storage.get_model_config(request.model_config_id)
+        if not config:
+            raise HTTPException(status_code=400, detail="Model config not found")
+
     runner = DeepAgentsRunner(agent, storage, override_model_config_id=request.model_config_id)
-    await runner.create()
+    try:
+        await runner.create()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     async def stream_events():
         task = request.task
