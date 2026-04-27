@@ -36,5 +36,45 @@ export const useModelsStore = defineStore('models', () => {
     }
   }
 
-  return { models, loading, error, fetchModels, createModel }
+  async function getModel(id: string): Promise<ModelConfig | null> {
+    try {
+      return await modelsApi.get(id)
+    } catch {
+      return null
+    }
+  }
+
+  async function updateModel(id: string, data: Partial<ModelConfig>): Promise<ModelConfig> {
+    loading.value = true
+    error.value = null
+    try {
+      const model = await modelsApi.update(id, data)
+      const index = models.value.findIndex(m => m.id === id)
+      if (index !== -1) {
+        models.value[index] = model
+      }
+      return model
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Failed to update model'
+      throw e
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function deleteModel(id: string): Promise<void> {
+    loading.value = true
+    error.value = null
+    try {
+      await modelsApi.delete(id)
+      models.value = models.value.filter(m => m.id !== id)
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Failed to delete model'
+      throw e
+    } finally {
+      loading.value = false
+    }
+  }
+
+  return { models, loading, error, fetchModels, getModel, createModel, updateModel, deleteModel }
 })
