@@ -436,6 +436,14 @@ class SQLiteStorage:
     # ModelConfig operations
     async def save_model_config(self, config: ModelConfig) -> None:
         async with self.async_session() as session:
+            from sqlalchemy import select
+
+            # Check if model config already exists
+            result = await session.execute(
+                select(ModelConfigModel).where(ModelConfigModel.id == config.id)
+            )
+            existing = result.scalar_one_or_none()
+
             model = ModelConfigModel(
                 id=config.id,
                 name=config.name,
@@ -448,7 +456,14 @@ class SQLiteStorage:
                 created_at=config.created_at,
                 updated_at=config.updated_at,
             )
-            session.add(model)
+
+            if existing:
+                # Update existing record
+                for key in ['name', 'type', 'model', 'api_key', 'base_url', 'config', 'updated_at']:
+                    setattr(existing, key, getattr(model, key))
+            else:
+                # Insert new record
+                session.add(model)
             await session.commit()
 
     async def get_model_config(self, id: str) -> Optional[ModelConfig]:
