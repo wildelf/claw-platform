@@ -77,12 +77,20 @@ class DeepAgentsRunner:
         # Store for later use
         self._workspace_dir = workspace_dir
 
-        # 7. Create deep_agent with skills
+        # 7. Create middleware for skill events
+        skill_middleware = SkillEventMiddleware(
+            backend=backend,
+            sources=skill_sources if skill_sources else [],
+        )
+
+        # 8. Create deep_agent with middleware instead of skills parameter
+        #    (skills parameter triggers built-in SkillsMiddleware, we use our own)
         self._runner = create_deep_agent(
             model=model,
             tools=tools if tools else None,
             system_prompt=system_prompt,
-            skills=skill_sources if skill_sources else None,
+            skills=None,
+            middleware=[skill_middleware],
             backend=backend,
         )
         self._backend = backend
@@ -139,26 +147,8 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
             "message": "准备执行环境...",
         }
 
-        # Emit skill loading events for bound skills
-        if self.agent.skill_ids:
-            for skill_id in self.agent.skill_ids:
-                skill = await self.storage.get_skill(skill_id)
-                if skill:
-                    yield {
-                        "type": "skill_loading",
-                        "skill_id": str(skill_id),
-                        "skill_name": skill.name,
-                    }
-                    yield {
-                        "type": "skill_loaded",
-                        "skill_id": str(skill_id),
-                        "skill_name": skill.name,
-                    }
-        else:
-            yield {
-                "type": "preparing",
-                "message": "无绑定的 skills，开始执行...",
-            }
+        # skill events are now emitted by SkillEventMiddleware via stream
+        # (skill_loading / skill_loaded / skill_reading flow through the "custom" stream mode)
 
         # Emit thinking event
         yield {
