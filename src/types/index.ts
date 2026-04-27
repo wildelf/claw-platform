@@ -50,3 +50,16 @@ export interface Skill {
   created_at: string
   updated_at: string
 }
+
+export interface ModelConfig {
+  id: string
+  name: string
+  type: 'openai' | 'anthropic' | 'local' | 'deepseek' | 'other'
+  model: string
+  api_key?: string
+  base_url?: string
+  config: Record<string, any>
+  user_id: string
+  created_at: string
+  updated_at: string
+}
