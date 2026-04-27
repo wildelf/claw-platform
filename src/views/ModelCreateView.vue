@@ -18,6 +18,8 @@ const form = ref({
 })
 
 const loading = ref(false)
+const testing = ref(false)
+const testResult = ref<{ok: boolean, message: string} | null>(null)
 const error = ref<string | null>(null)
 
 const providerOptions = [
@@ -59,6 +61,34 @@ async function handleSubmit() {
 
 function handleCancel() {
   router.push('/models')
+}
+
+async function testConnection() {
+  if (!form.value.model.trim()) {
+    testResult.value = { ok: false, message: 'Model name is required' }
+    return
+  }
+
+  testing.value = true
+  testResult.value = null
+
+  try {
+    const response = await fetch('/api/models/test-connection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: form.value.type,
+        model: form.value.model,
+        api_key: form.value.api_key || undefined,
+        base_url: form.value.base_url || undefined
+      })
+    })
+    testResult.value = await response.json()
+  } catch (e) {
+    testResult.value = { ok: false, message: 'Failed to test connection' }
+  } finally {
+    testing.value = false
+  }
 }
 </script>
 
@@ -119,6 +149,22 @@ function handleCancel() {
           <p class="text-sm text-gray-500 mt-1">
             Optional - leave empty to use provider's default endpoint
           </p>
+        </div>
+
+        <!-- Test Connection -->
+        <div class="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="secondary"
+            @click="testConnection"
+            :loading="testing"
+            :disabled="!form.model.trim()"
+          >
+            Test Connection
+          </Button>
+          <span v-if="testResult" :class="testResult.ok ? 'text-green-600' : 'text-red-600'">
+            {{ testResult.message }}
+          </span>
         </div>
 
         <div class="flex gap-3 pt-4">
