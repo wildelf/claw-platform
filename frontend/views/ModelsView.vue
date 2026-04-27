@@ -14,7 +14,7 @@ const columns = [
   { key: 'type', label: 'Provider', width: '120px' },
   { key: 'model', label: 'Model' },
   { key: 'base_url', label: 'Base URL' },
-  { key: 'actions', label: 'Actions', width: '200px' }
+  { key: 'actions', label: 'Actions', width: '280px' }
 ]
 
 onMounted(() => {
@@ -28,6 +28,30 @@ function handleEdit(modelId: string) {
 async function handleDelete(modelId: string) {
   if (confirm('Are you sure you want to delete this model config?')) {
     await modelsStore.deleteModel(modelId)
+  }
+}
+
+async function testConnection(row: any) {
+  if (row.testLoading) return
+  row.testLoading = true
+  row.testResult = null
+
+  try {
+    const response = await fetch('/api/models/test-connection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: row.type,
+        model: row.model,
+        api_key: row.api_key || undefined,
+        base_url: row.base_url || undefined
+      })
+    })
+    row.testResult = await response.json()
+  } catch (e) {
+    row.testResult = { ok: false, message: 'Failed to test connection' }
+  } finally {
+    row.testLoading = false
   }
 }
 
@@ -79,8 +103,12 @@ function getProviderBadge(type: string): string {
         </template>
         <template #cell-actions="{ row }">
           <div class="flex gap-2">
+            <Button variant="ghost" size="sm" @click="testConnection(row)">Test</Button>
             <Button variant="ghost" size="sm" @click="handleEdit(row.id)">Edit</Button>
             <Button variant="danger" size="sm" @click="handleDelete(row.id)">Delete</Button>
+          </div>
+          <div v-if="row.testResult" class="mt-1 text-xs" :class="row.testResult.ok ? 'text-green-600' : 'text-red-600'">
+            {{ row.testResult.message }}
           </div>
         </template>
       </Table>
