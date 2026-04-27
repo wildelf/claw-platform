@@ -21,5 +21,20 @@ export const useModelsStore = defineStore('models', () => {
     }
   }
 
-  return { models, loading, error, fetchModels }
+  async function createModel(config: Partial<ModelConfig>): Promise<ModelConfig> {
+    loading.value = true
+    error.value = null
+    try {
+      const newModel = await modelsApi.create(config)
+      models.value.push(newModel)
+      return newModel
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Failed to create model'
+      throw e
+    } finally {
+      loading.value = false
+    }
+  }
+
+  return { models, loading, error, fetchModels, createModel }
 })
