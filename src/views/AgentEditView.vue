@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAgentsStore } from '@/stores/agents'
 import { useSkillsStore } from '@/stores/skills'
+import { useModelsStore } from '@/stores/models'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
 
@@ -10,6 +11,7 @@ const route = useRoute()
 const router = useRouter()
 const agentsStore = useAgentsStore()
 const skillsStore = useSkillsStore()
+const modelsStore = useModelsStore()
 
 const form = ref({
   name: '',
@@ -17,7 +19,8 @@ const form = ref({
   role: '',
   goal: '',
   backstory: '',
-  skill_ids: [] as string[]
+  skill_ids: [] as string[],
+  model_config_id: null as string | null
 })
 
 const loading = ref(false)
@@ -30,7 +33,8 @@ onMounted(async () => {
   try {
     await Promise.all([
       agentsStore.fetchAgent(route.params.id as string),
-      skillsStore.fetchSkills()
+      skillsStore.fetchSkills(),
+      modelsStore.fetchModels()
     ])
     const agent = agentsStore.currentAgent
     if (agent) {
@@ -41,6 +45,7 @@ onMounted(async () => {
         goal: agent.goal,
         backstory: agent.backstory,
         skill_ids: agent.skill_ids || [],
+        model_config_id: agent.model_config_id || null,
       }
     }
   } catch (e) {
@@ -159,6 +164,22 @@ function isSkillSelected(skillId: string) {
               No skills available
             </div>
           </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Default Model</label>
+          <select
+            v-model="form.model_config_id"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option :value="null">System Default</option>
+            <option v-for="model in modelsStore.models" :key="model.id" :value="model.id">
+              {{ model.name }} ({{ model.model }})
+            </option>
+          </select>
+          <p class="text-sm text-gray-500 mt-1">
+            Optionally select a default model for this agent
+          </p>
         </div>
 
         <div v-if="error" class="text-red-500 text-sm">{{ error }}</div>
