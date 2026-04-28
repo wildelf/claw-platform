@@ -167,8 +167,8 @@ async def run_agent(
             model_config = await storage.get_model_config(request.model_config_id)
             if model_config:
                 model_name = model_config.model
-        elif agent.model_config_id:
-            model_config = await storage.get_model_config(agent.model_config_id)
+        elif agent.text_model_config_id:
+            model_config = await storage.get_model_config(agent.text_model_config_id)
             if model_config:
                 model_name = model_config.model
 
@@ -246,8 +246,8 @@ async def run_agent_with_feedback(
             model_config = await storage.get_model_config(request.model_config_id)
             if model_config:
                 model_name = model_config.model
-        elif agent.model_config_id:
-            model_config = await storage.get_model_config(agent.model_config_id)
+        elif agent.text_model_config_id:
+            model_config = await storage.get_model_config(agent.text_model_config_id)
             if model_config:
                 model_name = model_config.model
 

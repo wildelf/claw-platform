@@ -261,7 +261,6 @@ class SQLiteStorage:
                 backstory=agent.backstory,
                 skill_ids=json.dumps(agent.skill_ids),
                 tool_ids=json.dumps(agent.tool_ids),
-                model_config_id=agent.model_config_id,
                 text_model_config_id=agent.text_model_config_id,
                 image_model_config_id=agent.image_model_config_id,
                 video_model_config_id=agent.video_model_config_id,
@@ -274,7 +273,7 @@ class SQLiteStorage:
             if existing:
                 # Update existing record
                 for key in ['name', 'description', 'role', 'goal', 'backstory',
-                           'skill_ids', 'tool_ids', 'model_config_id',
+                           'skill_ids', 'tool_ids',
                            'text_model_config_id', 'image_model_config_id', 'video_model_config_id',
                            'status', 'updated_at']:
                     setattr(existing, key, getattr(model, key))
