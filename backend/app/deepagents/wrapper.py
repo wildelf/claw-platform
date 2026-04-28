@@ -62,8 +62,8 @@ class DeepAgentsRunner:
         # 3. Load tools
         tools = await self._load_tools()
 
-        # 4. Resolve model configuration
-        model = await self._resolve_model()
+        # 4. Resolve model configuration (use default - will be re-resolved in run() with actual input_data)
+        self._model = await self._resolve_model(None)
 
         # 5. Build system prompt from agent config
         system_prompt = self._system_prompt_override or self._build_system_prompt()
@@ -86,7 +86,7 @@ class DeepAgentsRunner:
         # 8. Create deep_agent with middleware instead of skills parameter
         #    (skills parameter triggers built-in SkillsMiddleware, we use our own)
         self._runner = create_deep_agent(
-            model=model,
+            model=self._model,
             tools=tools if tools else None,
             system_prompt=system_prompt,
             skills=None,
@@ -157,6 +157,9 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
             "type": "thinking",
             "message": "AI 正在思考...",
         }
+
+        # Re-resolve model with actual input_data for image-based routing
+        self._model = await self._resolve_model(input_data)
 
         # Use astream with multiple stream modes
         # - "custom": for skill events via StreamWriter
