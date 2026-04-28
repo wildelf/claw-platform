@@ -25,7 +25,9 @@ class Agent(BaseEntity):
     backstory: str = Field(max_length=2000, default="")
     skill_ids: List[EntityId] = Field(default_factory=list)
     tool_ids: List[EntityId] = Field(default_factory=list)
-    model_config_id: EntityId | None = None
+    text_model_config_id: EntityId | None = None
+    image_model_config_id: EntityId | None = None
+    video_model_config_id: EntityId | None = None
     status: AgentStatus = AgentStatus.PENDING
     user_id: EntityId
 
