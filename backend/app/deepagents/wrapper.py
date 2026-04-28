@@ -140,6 +140,8 @@ The user has uploaded {len(image_paths)} image(s) for you to process. You MUST u
 
 IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), use the exact file path shown above with your image processing tool. Do NOT ask the user for image paths - they have already been provided."""
             input_data = {"messages": [{"role": "user", "content": task_with_images}]}
+        else:
+            input_data = {"messages": [{"role": "user", "content": task}]}
 
         # Emit preparing event
         yield {
@@ -168,8 +170,12 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
                 mode, data = chunk
                 if mode == "custom":
                     # Custom events from StreamWriter (skill events, etc.)
-                    if isinstance(data, dict):
-                        yield data
+                    # Skip non-serializable events like Overwrite objects
+                    try:
+                        if isinstance(data, dict) and "type" in data:
+                            yield data
+                    except (TypeError, ValueError):
+                        pass
                 elif mode == "messages":
                     # LLM token messages - extract content
                     content = self._extract_message_content(data)
@@ -196,33 +202,37 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
                         }
             elif isinstance(chunk, dict):
                 # Fallback for single mode or direct dict
-                tool_calls = self._extract_tool_info(chunk)
-                if tool_calls:
-                    skill_event = self._detect_skill_file_access(tool_calls)
-                    if skill_event:
-                        yield skill_event
+                try:
+                    tool_calls = self._extract_tool_info(chunk)
+                    if tool_calls:
+                        skill_event = self._detect_skill_file_access(tool_calls)
+                        if skill_event:
+                            yield skill_event
 
-                    for tool_info in tool_calls:
-                        yield {
-                            "type": "tool_call",
-                            "tool": tool_info["name"],
-                            "input": tool_info.get("input"),
-                        }
+                        for tool_info in tool_calls:
+                            yield {
+                                "type": "tool_call",
+                                "tool": tool_info["name"],
+                                "input": tool_info.get("input"),
+                            }
 
-                content = self._extract_content(chunk)
-                if content:
-                    yield {
-                        "type": "content",
-                        "content": content,
-                    }
-                    # Extract and yield image events
-                    images = self._extract_images_from_content(content)
-                    for img in images:
+                    content = self._extract_content(chunk)
+                    if content:
                         yield {
-                            "type": "image",
-                            "url": img["url"],
-                            "alt": img["alt"],
+                            "type": "content",
+                            "content": content,
                         }
+                        # Extract and yield image events
+                        images = self._extract_images_from_content(content)
+                        for img in images:
+                            yield {
+                                "type": "image",
+                                "url": img["url"],
+                                "alt": img["alt"],
+                            }
+                except (TypeError, ValueError):
+                    # Skip non-serializable chunks
+                    pass
 
     def _extract_content(self, chunk) -> str | None:
         """Extract text content from a chunk."""
@@ -320,6 +330,15 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
                             }
         return None
 
+    def _detect_images_in_input(self, input_data: dict) -> bool:
+        """Detect if input contains base64 image data."""
+        messages = input_data.get("messages", [])
+        for msg in messages:
+            content = msg.get("content", "")
+            if isinstance(content, str) and ("data:image" in content or "base64," in content):
+                return True
+        return False
+
     def _extract_images_from_content(self, content: str) -> list[dict]:
         """Extract image URLs from content (markdown image syntax)."""
         images = []
@@ -390,9 +409,19 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
 
         return tools
 
-    async def _resolve_model(self):
-        """Resolve model from agent configuration with override support."""
+    async def _resolve_model(self, input_data: dict | None = None):
+        """Resolve model from agent configuration with override support.
+
+        Auto-selects model based on input modality:
+        - If images detected in input and image_model_config_id exists -> use image model
+        - Otherwise fall back to text_model_config_id
+        """
         from langchain_openai import ChatOpenAI
+
+        # Determine which model slot to use based on input content
+        use_image_model = False
+        if input_data:
+            use_image_model = self._detect_images_in_input(input_data)
 
         # Priority 1: Temporary override
         if self._override_model_config_id:
@@ -401,9 +430,15 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
                 return self._create_model_from_config(config)
             raise ValueError(f"Override model config not found: {self._override_model_config_id}")
 
-        # Priority 2: Agent default model
-        if self.agent.model_config_id:
-            config = await self.storage.get_model_config(self.agent.model_config_id)
+        # Priority 2: Agent model based on modality
+        model_config_id = None
+        if use_image_model and self.agent.image_model_config_id:
+            model_config_id = self.agent.image_model_config_id
+        elif self.agent.text_model_config_id:
+            model_config_id = self.agent.text_model_config_id
+
+        if model_config_id:
+            config = await self.storage.get_model_config(model_config_id)
             if config:
                 return self._create_model_from_config(config)
 
