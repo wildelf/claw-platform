@@ -5,13 +5,33 @@ import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
 import Badge from '@/components/ui/Badge.vue'
 import { useAgentsStore } from '@/stores/agents'
+import { useModelsStore } from '@/stores/models'
 
 const route = useRoute()
 const router = useRouter()
 const agentsStore = useAgentsStore()
+const modelsStore = useModelsStore()
 
 const agentId = computed(() => route.params.id as string)
 const agent = computed(() => agentsStore.currentAgent)
+
+const textModelName = computed(() => {
+  if (!agent.value?.text_model_config_id) return 'Default'
+  const m = modelsStore.models.find(m => m.id === agent.value?.text_model_config_id)
+  return m ? `${m.name} (${m.model})` : 'Default'
+})
+
+const imageModelName = computed(() => {
+  if (!agent.value?.image_model_config_id) return 'None'
+  const m = modelsStore.models.find(m => m.id === agent.value?.image_model_config_id)
+  return m ? `${m.name} (${m.model})` : 'None'
+})
+
+const videoModelName = computed(() => {
+  if (!agent.value?.video_model_config_id) return 'None'
+  const m = modelsStore.models.find(m => m.id === agent.value?.video_model_config_id)
+  return m ? `${m.name} (${m.model})` : 'None'
+})
 
 const running = ref(false)
 const taskInput = ref('')
@@ -36,6 +56,7 @@ const thinkingContent = ref('')
 
 onMounted(async () => {
   await agentsStore.fetchAgent(agentId.value)
+  await modelsStore.fetchModels()
 })
 
 function getStatusVariant(status: string): 'success' | 'warning' | 'danger' | 'default' {
@@ -197,7 +218,6 @@ function handleEvent(data: any) {
 
     case 'thinking':
       thinkingContent.value += data.content || ''
-      events.value.push({ ...event, content: data.content })
       break
 
     case 'content':
@@ -207,7 +227,6 @@ function handleEvent(data: any) {
       content = content.replace(/<think>[\s\S]*?<\/think>/gi, '')
       if (content.trim()) {
         appendOutput(content)
-        events.value.push({ ...event, content })
       }
       break
 
@@ -220,7 +239,7 @@ function handleEvent(data: any) {
     case 'error':
       currentEvent.value = null
       appendOutput(`\nError: ${data.error}\n`)
-      events.value.push({ ...event, content: data.error })
+      events.value.push({ ...event, content: (data.error || '').substring(0, 100) + ((data.error || '').length > 100 ? '...' : '') })
       break
   }
 }
@@ -269,6 +288,21 @@ function handleEdit() {
           <div class="pt-4 border-t border-gray-200">
             <p class="text-sm font-medium text-gray-500">Backstory</p>
             <p class="text-gray-900 mt-1">{{ agent.backstory || 'Not specified' }}</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-200">
+            <div>
+              <p class="text-sm font-medium text-gray-500">Text Model</p>
+              <p class="text-gray-900">{{ textModelName }}</p>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-gray-500">Image Model</p>
+              <p class="text-gray-900">{{ imageModelName }}</p>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-gray-500">Video Model</p>
+              <p class="text-gray-900">{{ videoModelName }}</p>
+            </div>
           </div>
         </div>
       </Card>
