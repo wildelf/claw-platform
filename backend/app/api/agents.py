@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from app.api.deps import Storage, UserId
 from app.application.agent_service import AgentService
 from app.domain.agent import Agent
+from app.domain.base import EntityId
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -60,9 +61,9 @@ async def create_agent(
         backstory=data.backstory,
         skill_ids=data.skill_ids,
         tool_ids=data.tool_ids,
-        text_model_config_id=data.text_model_config_id,
-        image_model_config_id=data.image_model_config_id,
-        video_model_config_id=data.video_model_config_id,
+        text_model_config_id=EntityId(data.text_model_config_id) if data.text_model_config_id else None,
+        image_model_config_id=EntityId(data.image_model_config_id) if data.image_model_config_id else None,
+        video_model_config_id=EntityId(data.video_model_config_id) if data.video_model_config_id else None,
         user_id=user_id,
     )
     service = AgentService(storage)
