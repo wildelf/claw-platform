@@ -13,14 +13,17 @@ const agentsStore = useAgentsStore()
 const skillsStore = useSkillsStore()
 const modelsStore = useModelsStore()
 
-const formData = ref({
+const form = ref({
   name: '',
   description: '',
   role: '',
   goal: '',
   backstory: '',
   skill_ids: [] as string[],
-  model_config_id: null as string | null
+  tool_ids: [] as string[],
+  text_model_config_id: '',
+  image_model_config_id: '',
+  video_model_config_id: '',
 })
 
 const loading = ref(false)
@@ -32,7 +35,7 @@ onMounted(async () => {
 })
 
 async function handleSubmit() {
-  if (!formData.value.name.trim()) {
+  if (!form.value.name.trim()) {
     error.value = 'Name is required'
     return
   }
@@ -41,7 +44,7 @@ async function handleSubmit() {
   error.value = null
 
   try {
-    await agentsStore.createAgent(formData.value)
+    await agentsStore.createAgent(form.value)
     router.push('/agents')
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to create agent'
@@ -55,16 +58,16 @@ function handleCancel() {
 }
 
 function toggleSkill(skillId: string) {
-  const idx = formData.value.skill_ids.indexOf(skillId)
+  const idx = form.value.skill_ids.indexOf(skillId)
   if (idx === -1) {
-    formData.value.skill_ids.push(skillId)
+    form.value.skill_ids.push(skillId)
   } else {
-    formData.value.skill_ids.splice(idx, 1)
+    form.value.skill_ids.splice(idx, 1)
   }
 }
 
 function isSkillSelected(skillId: string) {
-  return formData.value.skill_ids.includes(skillId)
+  return form.value.skill_ids.includes(skillId)
 }
 </script>
 
@@ -81,7 +84,7 @@ function isSkillSelected(skillId: string) {
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
           <Input
-            v-model="formData.name"
+            v-model="form.name"
             placeholder="Enter agent name"
           />
         </div>
@@ -89,7 +92,7 @@ function isSkillSelected(skillId: string) {
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
           <textarea
-            v-model="formData.description"
+            v-model="form.description"
             placeholder="Enter agent description"
             rows="3"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -99,7 +102,7 @@ function isSkillSelected(skillId: string) {
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
           <Input
-            v-model="formData.role"
+            v-model="form.role"
             placeholder="Enter agent role"
           />
         </div>
@@ -107,7 +110,7 @@ function isSkillSelected(skillId: string) {
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Goal</label>
           <textarea
-            v-model="formData.goal"
+            v-model="form.goal"
             placeholder="Enter agent goal"
             rows="2"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -117,7 +120,7 @@ function isSkillSelected(skillId: string) {
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Backstory</label>
           <textarea
-            v-model="formData.backstory"
+            v-model="form.backstory"
             placeholder="Enter agent backstory"
             rows="4"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -149,19 +152,29 @@ function isSkillSelected(skillId: string) {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Default Model</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Text Model</label>
           <select
-            v-model="formData.model_config_id"
+            v-model="form.text_model_config_id"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option :value="null">System Default</option>
-            <option v-for="model in modelsStore.models" :key="model.id" :value="model.id">
-              {{ model.name }} ({{ model.model }})
+            <option value="">Default</option>
+            <option v-for="m in modelsStore.models.filter(m => !m.modality || m.modality === 'text')" :key="m.id" :value="m.id">
+              {{ m.name }} ({{ m.model }})
             </option>
           </select>
-          <p class="text-sm text-gray-500 mt-1">
-            Optionally select a default model for this agent
-          </p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Image Model</label>
+          <select
+            v-model="form.image_model_config_id"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">None</option>
+            <option v-for="m in modelsStore.models.filter(m => ['text-to-image','image-to-image','image-to-text'].includes(m.modality || 'text'))" :key="m.id" :value="m.id">
+              {{ m.name }} ({{ m.model }})
+            </option>
+          </select>
         </div>
 
         <div class="flex gap-3 pt-4">

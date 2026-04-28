@@ -20,7 +20,10 @@ const form = ref({
   goal: '',
   backstory: '',
   skill_ids: [] as string[],
-  model_config_id: null as string | null
+  tool_ids: [] as string[],
+  text_model_config_id: '',
+  image_model_config_id: '',
+  video_model_config_id: '',
 })
 
 const loading = ref(false)
@@ -45,7 +48,10 @@ onMounted(async () => {
         goal: agent.goal,
         backstory: agent.backstory,
         skill_ids: agent.skill_ids || [],
-        model_config_id: agent.model_config_id || null,
+        tool_ids: agent.tool_ids || [],
+        text_model_config_id: agent.text_model_config_id || '',
+        image_model_config_id: agent.image_model_config_id || '',
+        video_model_config_id: agent.video_model_config_id || '',
       }
     }
   } catch (e) {
@@ -167,19 +173,29 @@ function isSkillSelected(skillId: string) {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Default Model</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Text Model</label>
           <select
-            v-model="form.model_config_id"
+            v-model="form.text_model_config_id"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option :value="null">System Default</option>
-            <option v-for="model in modelsStore.models" :key="model.id" :value="model.id">
-              {{ model.name }} ({{ model.model }})
+            <option value="">Default</option>
+            <option v-for="m in modelsStore.models.filter(m => !m.modality || m.modality === 'text')" :key="m.id" :value="m.id">
+              {{ m.name }} ({{ m.model }})
             </option>
           </select>
-          <p class="text-sm text-gray-500 mt-1">
-            Optionally select a default model for this agent
-          </p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Image Model</label>
+          <select
+            v-model="form.image_model_config_id"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">None</option>
+            <option v-for="m in modelsStore.models.filter(m => ['text-to-image','image-to-image','image-to-text'].includes(m.modality || 'text'))" :key="m.id" :value="m.id">
+              {{ m.name }} ({{ m.model }})
+            </option>
+          </select>
         </div>
 
         <div v-if="error" class="text-red-500 text-sm">{{ error }}</div>
