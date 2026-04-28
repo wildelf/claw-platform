@@ -14,7 +14,8 @@ const form = ref({
   type: 'openai',
   model: '',
   api_key: '',
-  base_url: ''
+  base_url: '',
+  modality: 'text'
 })
 
 const loading = ref(false)
@@ -49,7 +50,8 @@ async function handleSubmit() {
       type: form.value.type as any,
       model: form.value.model,
       api_key: form.value.api_key || undefined,
-      base_url: form.value.base_url || undefined
+      base_url: form.value.base_url || undefined,
+      modality: form.value.modality
     })
     router.push('/models')
   } catch (e) {
@@ -149,6 +151,21 @@ async function testConnection() {
           <p class="text-sm text-gray-500 mt-1">
             Optional - leave empty to use provider's default endpoint
           </p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Modality</label>
+          <select
+            v-model="form.modality"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="text">Text</option>
+            <option value="image-to-text">Image to Text (VLM)</option>
+            <option value="text-to-image">Text to Image</option>
+            <option value="image-to-image">Image to Image</option>
+            <option value="text-to-video">Text to Video</option>
+            <option value="video">Video (reserved)</option>
+          </select>
         </div>
 
         <!-- Test Connection -->

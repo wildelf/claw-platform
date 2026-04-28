@@ -17,7 +17,8 @@ const form = ref({
   type: 'openai',
   model: '',
   api_key: '',
-  base_url: ''
+  base_url: '',
+  modality: 'text'
 })
 
 const loading = ref(false)
@@ -32,13 +33,14 @@ const providerOptions = [
 ]
 
 onMounted(async () => {
-  const model = await modelsStore.getModel(modelId)
-  if (model) {
-    form.value.name = model.name
-    form.value.type = model.type
-    form.value.model = model.model
-    form.value.api_key = model.api_key || ''
-    form.value.base_url = model.base_url || ''
+  const row = await modelsStore.getModel(modelId)
+  if (row) {
+    form.value.name = row.name
+    form.value.type = row.type
+    form.value.model = row.model
+    form.value.api_key = row.api_key || ''
+    form.value.base_url = row.base_url || ''
+    form.value.modality = row.modality || 'text'
   }
 })
 
@@ -61,7 +63,8 @@ async function handleSubmit() {
       type: form.value.type as any,
       model: form.value.model,
       api_key: form.value.api_key || undefined,
-      base_url: form.value.base_url || undefined
+      base_url: form.value.base_url || undefined,
+      modality: form.value.modality
     })
     router.push('/models')
   } catch (e) {
@@ -133,6 +136,21 @@ function handleCancel() {
             v-model="form.base_url"
             placeholder="e.g., https://api.openai.com/v1"
           />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Modality</label>
+          <select
+            v-model="form.modality"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="text">Text</option>
+            <option value="image-to-text">Image to Text (VLM)</option>
+            <option value="text-to-image">Text to Image</option>
+            <option value="image-to-image">Image to Image</option>
+            <option value="text-to-video">Text to Video</option>
+            <option value="video">Video (reserved)</option>
+          </select>
         </div>
 
         <div class="flex gap-3 pt-4">
