@@ -158,8 +158,52 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
             "message": "AI 正在思考...",
         }
 
-        # Re-resolve model with actual input_data for image-based routing
-        self._model = await self._resolve_model(input_data)
+        # Detect image input and resolve correct model
+        has_images = bool(images)
+        self._model = await self._resolve_model(input_data, has_images)
+
+        # Create runner with resolved model if not yet created
+        if not self._runner:
+            self._workspace_dir = Path(tempfile.mkdtemp(prefix="agent_workspace_"))
+            skills_dir = self._workspace_dir / "skills"
+            skills_dir.mkdir(parents=True, exist_ok=True)
+            skill_sources = await self._get_skill_sources(self._workspace_dir)
+            tools = await self._load_tools()
+            system_prompt = self._system_prompt_override or self._build_system_prompt()
+            from deepagents.backends.filesystem import FilesystemBackend
+            backend = FilesystemBackend(root_dir=str(self._workspace_dir), virtual_mode=True)
+            skill_middleware = SkillEventMiddleware(
+                backend=backend,
+                sources=skill_sources if skill_sources else [],
+            )
+            self._runner = create_deep_agent(
+                model=self._model,
+                tools=tools if tools else None,
+                system_prompt=system_prompt,
+                skills=None,
+                middleware=[skill_middleware],
+                backend=backend,
+            )
+            self._backend = backend
+            # Store skill sources for re-use in subsequent runs
+            self._skill_sources = skill_sources
+        elif self._workspace_dir:
+            # Re-create runner with different model (different model instance)
+            skill_sources = getattr(self, '_skill_sources', None) or []
+            from deepagents.backends.filesystem import FilesystemBackend
+            backend = FilesystemBackend(root_dir=str(self._workspace_dir), virtual_mode=True)
+            skill_middleware = SkillEventMiddleware(
+                backend=backend,
+                sources=skill_sources if skill_sources else [],
+            )
+            self._runner = create_deep_agent(
+                model=self._model,
+                tools=None,
+                system_prompt=self._system_prompt_override or self._build_system_prompt(),
+                skills=None,
+                middleware=[skill_middleware],
+                backend=backend,
+            )
 
         # Use astream with multiple stream modes
         # - "custom": for skill events via StreamWriter
@@ -412,19 +456,17 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
 
         return tools
 
-    async def _resolve_model(self, input_data: dict | None = None):
+    async def _resolve_model(self, input_data: dict | None = None, has_images: bool = False):
         """Resolve model from agent configuration with override support.
 
-        Auto-selects model based on input modality:
-        - If images detected in input and image_model_config_id exists -> use image model
-        - Otherwise fall back to text_model_config_id
+        Args:
+            input_data: The input data dict (used for legacy detection via _detect_images_in_input)
+            has_images: If True, prefer image_model_config_id directly
         """
         from langchain_openai import ChatOpenAI
 
-        # Determine which model slot to use based on input content
-        use_image_model = False
-        if input_data:
-            use_image_model = self._detect_images_in_input(input_data)
+        # Determine which model slot to use
+        use_image_model = has_images or (input_data and self._detect_images_in_input(input_data))
 
         # Priority 1: Temporary override
         if self._override_model_config_id:
