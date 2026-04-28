@@ -24,7 +24,9 @@ class CreateAgent(BaseModel):
     backstory: str = Field(default="", max_length=2000)
     skill_ids: List[str] = Field(default_factory=list)
     tool_ids: List[str] = Field(default_factory=list)
-    model_config_id: str | None = None
+    text_model_config_id: str | None = None
+    image_model_config_id: str | None = None
+    video_model_config_id: str | None = None
 
 
 class UpdateAgent(BaseModel):
@@ -37,7 +39,9 @@ class UpdateAgent(BaseModel):
     backstory: str | None = Field(default=None, max_length=2000)
     skill_ids: List[str] | None = None
     tool_ids: List[str] | None = None
-    model_config_id: str | None = None
+    text_model_config_id: str | None = None
+    image_model_config_id: str | None = None
+    video_model_config_id: str | None = None
     status: str | None = None
 
 
@@ -56,7 +60,9 @@ async def create_agent(
         backstory=data.backstory,
         skill_ids=data.skill_ids,
         tool_ids=data.tool_ids,
-        model_config_id=data.model_config_id,
+        text_model_config_id=data.text_model_config_id,
+        image_model_config_id=data.image_model_config_id,
+        video_model_config_id=data.video_model_config_id,
         user_id=user_id,
     )
     service = AgentService(storage)
@@ -178,7 +184,11 @@ async def run_agent(
                         yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
                 else:
                     # Forward other event types as-is
-                    yield f"data: {json.dumps(event)}\n\n"
+                    try:
+                        yield f"data: {json.dumps(event)}\n\n"
+                    except (TypeError, ValueError):
+                        # Skip non-serializable events like Overwrite objects
+                        pass
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
@@ -253,7 +263,11 @@ async def run_agent_with_feedback(
                         yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
                 else:
                     # Forward other event types as-is
-                    yield f"data: {json.dumps(event)}\n\n"
+                    try:
+                        yield f"data: {json.dumps(event)}\n\n"
+                    except (TypeError, ValueError):
+                        # Skip non-serializable events like Overwrite objects
+                        pass
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
