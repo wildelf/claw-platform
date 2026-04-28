@@ -262,6 +262,9 @@ class SQLiteStorage:
                 skill_ids=json.dumps(agent.skill_ids),
                 tool_ids=json.dumps(agent.tool_ids),
                 model_config_id=agent.model_config_id,
+                text_model_config_id=agent.text_model_config_id,
+                image_model_config_id=agent.image_model_config_id,
+                video_model_config_id=agent.video_model_config_id,
                 status=agent.status,
                 user_id=agent.user_id,
                 created_at=agent.created_at,
@@ -271,7 +274,9 @@ class SQLiteStorage:
             if existing:
                 # Update existing record
                 for key in ['name', 'description', 'role', 'goal', 'backstory',
-                           'skill_ids', 'tool_ids', 'model_config_id', 'status', 'updated_at']:
+                           'skill_ids', 'tool_ids', 'model_config_id',
+                           'text_model_config_id', 'image_model_config_id', 'video_model_config_id',
+                           'status', 'updated_at']:
                     setattr(existing, key, getattr(model, key))
             else:
                 # Insert new record
@@ -458,6 +463,7 @@ class SQLiteStorage:
                 name=config.name,
                 type=config.type,
                 model=config.model,
+                modality=config.modality,
                 api_key=config.api_key,
                 base_url=config.base_url,
                 config=json.dumps(config.config),
@@ -468,7 +474,7 @@ class SQLiteStorage:
 
             if existing:
                 # Update existing record
-                for key in ['name', 'type', 'model', 'api_key', 'base_url', 'config', 'updated_at']:
+                for key in ['name', 'type', 'model', 'modality', 'api_key', 'base_url', 'config', 'updated_at']:
                     setattr(existing, key, getattr(model, key))
             else:
                 # Insert new record
