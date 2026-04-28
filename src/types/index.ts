@@ -17,6 +17,8 @@ export interface FeedbackEvent {
   timestamp: number
 }
 
+export type ModelModality = 'text' | 'image-to-text' | 'text-to-image' | 'image-to-image' | 'text-to-video' | 'video'
+
 export type AgentStatus = 'pending' | 'active' | 'paused'
 
 export interface Agent {
@@ -28,7 +30,9 @@ export interface Agent {
   backstory: string
   skill_ids: string[]
   tool_ids: string[]
-  model_config_id: string | null
+  text_model_config_id: string | null
+  image_model_config_id: string | null
+  video_model_config_id: string | null
   status: AgentStatus
   user_id: string
   created_at: string
@@ -59,6 +63,7 @@ export interface ModelConfig {
   api_key?: string
   base_url?: string
   config: Record<string, any>
+  modality?: ModelModality
   user_id: string
   created_at: string
   updated_at: string
