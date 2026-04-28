@@ -14,7 +14,7 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker, relationship
 from app.domain.agent import Agent, AgentStatus
 from app.domain.skill import Skill, SkillStatus, SkillFile, FileType
 from app.domain.tool import Tool, ToolType
-from app.domain.model_config import ModelConfig, ModelProviderType
+from app.domain.model_config import ModelConfig, ModelModality, ModelProviderType
 from app.domain.feedback import FeedbackEvent, FeedbackRating
 from app.domain.user import User, UserRole
 from app.infrastructure.storage.base import StorageAdapter
@@ -38,6 +38,9 @@ class AgentModel(Base):
     skill_ids = Column(Text, default="[]")
     tool_ids = Column(Text, default="[]")
     model_config_id = Column(String(36), nullable=True)
+    text_model_config_id = Column(String(36), nullable=True)
+    image_model_config_id = Column(String(36), nullable=True)
+    video_model_config_id = Column(String(36), nullable=True)
     status = Column(String(20), default=AgentStatus.PENDING.value)
     user_id = Column(String(36), nullable=False)
     created_at = Column(DateTime, nullable=False)
@@ -96,6 +99,7 @@ class ModelConfigModel(Base):
     api_key = Column(Text, nullable=True)
     base_url = Column(Text, nullable=True)
     config = Column(Text, default="{}")
+    modality = Column(String(20), default="text")
     user_id = Column(String(36), nullable=False)
     created_at = Column(DateTime, nullable=False)
     updated_at = Column(DateTime, nullable=False)
@@ -150,6 +154,8 @@ class SQLiteStorage:
             await conn.run_sync(Base.metadata.create_all)
 
     def _to_agent(self, row: AgentModel) -> Agent:
+        # Backward compat: model_config_id → text_model_config_id
+        text_id = row.text_model_config_id or row.model_config_id
         return Agent(
             id=EntityId(row.id),
             name=row.name,
@@ -159,7 +165,9 @@ class SQLiteStorage:
             backstory=row.backstory,
             skill_ids=[EntityId(sid) for sid in json.loads(row.skill_ids)],
             tool_ids=[EntityId(tid) for tid in json.loads(row.tool_ids)],
-            model_config_id=row.model_config_id,
+            text_model_config_id=EntityId(text_id) if text_id else None,
+            image_model_config_id=EntityId(row.image_model_config_id) if row.image_model_config_id else None,
+            video_model_config_id=EntityId(row.video_model_config_id) if row.video_model_config_id else None,
             status=AgentStatus(row.status),
             user_id=EntityId(row.user_id),
             created_at=row.created_at,
@@ -200,6 +208,7 @@ class SQLiteStorage:
             name=row.name,
             type=ModelProviderType(row.type),
             model=row.model,
+            modality=ModelModality(row.modality or "text"),
             api_key=row.api_key,
             base_url=row.base_url,
             config=json.loads(row.config),
