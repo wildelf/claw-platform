@@ -192,7 +192,7 @@ function isSkillSelected(skillId: string) {
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">None</option>
-            <option v-for="m in modelsStore.models.filter(m => ['text-to-image','image-to-image','image-to-text'].includes(m.modality || 'text'))" :key="m.id" :value="m.id">
+            <option v-for="m in modelsStore.models.filter(m => ['text-to-image', 'image-to-image', 'image-to-text'].includes(m.modality))" :key="m.id" :value="m.id">
               {{ m.name }} ({{ m.model }})
             </option>
           </select>
