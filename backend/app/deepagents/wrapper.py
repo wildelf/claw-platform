@@ -20,6 +20,7 @@ from app.deepagents.skills_middleware import SkillEventMiddleware
 from app.domain.agent import Agent
 from app.domain.tool import Tool, ToolType
 from app.domain.model_config import ModelProviderType
+from app.domain.tools.image_generation import ImageGenerationTool
 from app.infrastructure.storage.sqlite import SQLiteStorage
 from app.infrastructure.mcp.adapter import MCPAdapter
 from app.config import settings
@@ -61,6 +62,13 @@ class DeepAgentsRunner:
 
         # 3. Load tools
         tools = await self._load_tools()
+
+        # Inject ImageGenerationTool if agent has image_model configured
+        if self.agent.image_model_config_id:
+            image_model_config = await self.storage.get_model_config(self.agent.image_model_config_id)
+            if image_model_config:
+                image_tool = ImageGenerationTool(model_config=image_model_config)
+                tools.append(image_tool)
 
         # 4. Resolve model configuration (use default - will be re-resolved in run() with actual input_data)
         self._model = await self._resolve_model(None)
@@ -196,9 +204,15 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
                 backend=backend,
                 sources=skill_sources if skill_sources else [],
             )
+            # Re-inject ImageGenerationTool on re-creation if needed
+            image_tool = None
+            if self.agent.image_model_config_id:
+                image_model_config = await self.storage.get_model_config(self.agent.image_model_config_id)
+                if image_model_config:
+                    image_tool = ImageGenerationTool(model_config=image_model_config)
             self._runner = create_deep_agent(
                 model=self._model,
-                tools=None,
+                tools=[image_tool] if image_tool else None,
                 system_prompt=self._system_prompt_override or self._build_system_prompt(),
                 skills=None,
                 middleware=[skill_middleware],
