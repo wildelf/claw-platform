@@ -1,5 +1,6 @@
 """Image generation tool using configured image model."""
 
+import httpx
 from typing import Any, Literal
 
 from langchain_core.tools import BaseTool
@@ -40,8 +41,6 @@ class ImageGenerationTool(BaseTool):
         if not base_url:
             return {"error": "image_model base_url is not configured"}
 
-        import httpx
-
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
@@ -54,18 +53,25 @@ class ImageGenerationTool(BaseTool):
             "quality": self._model_config.config.get("quality", "standard"),
         }
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{base_url.rstrip('/')}/v1/images/generations",
-                json=payload,
-                headers=headers,
-                timeout=60.0,
-            )
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{base_url.rstrip('/')}/v1/images/generations",
+                    json=payload,
+                    headers=headers,
+                    timeout=60.0,
+                )
+                response.raise_for_status()
+        except httpx.TimeoutException:
+            return {"error": "Image generation timed out"}
+        except httpx.HTTPError as e:
+            return {"error": f"Image generation request failed: {e}"}
 
-        if response.status_code != 200:
-            return {"error": f"Image generation failed: {response.text}"}
+        try:
+            result = response.json()
+        except Exception:
+            return {"error": "Invalid response from image model"}
 
-        result = response.json()
         return {
             "image_url": result["data"][0]["url"],
             "revised_prompt": result["data"][0].get("revised_prompt"),
