@@ -11,6 +11,7 @@ from app.domain.base import BaseEntity, EntityId
 class ToolType(str, Enum):
     MCP = "mcp"
     CUSTOM = "custom"
+    IMAGE_GENERATION = "image_generation"
 
 
 class Tool(BaseEntity):
