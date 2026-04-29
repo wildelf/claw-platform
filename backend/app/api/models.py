@@ -106,6 +106,7 @@ class TestConnectionRequest(BaseModel):
     model: str = Field(max_length=100, default="gpt-4o")
     api_key: Optional[str] = None
     base_url: Optional[str] = None
+    modality: Optional[str] = "text"
 
 
 @router.post("/test-connection")
@@ -113,34 +114,96 @@ async def test_connection(
     request: TestConnectionRequest,
 ) -> dict:
     """Test model connection with given configuration."""
+    import httpx
+
+    if not request.base_url:
+        return {
+            "ok": False,
+            "message": "Base URL is required for testing connection"
+        }
+
+    # Image generation models (image-to-image, text-to-image): use images API
+    if request.modality in ("image-to-image", "text-to-image"):
+        try:
+            headers = {
+                "Authorization": f"Bearer {request.api_key}",
+                "Content-Type": "application/json",
+            }
+            payload: dict = {
+                "model": request.model,
+                "prompt": "test prompt",
+            }
+            if request.modality == "image-to-image":
+                # subject_reference with a public test image URL
+                payload["subject_reference"] = [
+                    {
+                        "type": "character",
+                        "image_file": "https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png",
+                    }
+                ]
+                payload["aspect_ratio"] = "1:1"
+
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{request.base_url.rstrip('/')}/image_generation",
+                    json=payload,
+                    headers=headers,
+                    timeout=15.0,
+                )
+            if response.status_code == 200:
+                return {
+                    "ok": True,
+                    "message": f"Connection successful for {request.model} image generation"
+                }
+            return {
+                "ok": False,
+                "message": f"Connection failed: HTTP {response.status_code} - {response.text[:100]}"
+            }
+        except Exception as e:
+            return {
+                "ok": False,
+                "message": f"Connection failed: {str(e)[:100]}"
+            }
+
+    # Text / image-to-text models: use ChatOpenAI /chat/completions
     from langchain_openai import ChatOpenAI
 
     try:
-        # Create a temporary model instance to test connection
-        if request.base_url:
-            llm = ChatOpenAI(
-                model=request.model,
-                api_key=request.api_key or "dummy",
-                base_url=request.base_url,
-                timeout=10,
-            )
-        else:
-            # Use a mock API key for testing if no base_url
-            llm = ChatOpenAI(
-                model=request.model,
-                api_key=request.api_key or "sk-test",
-                timeout=10,
-            )
-
-        # Try to make a simple API call to verify connection
-        # We'll just check if the client can be initialized, not actually make a call
-        # Real API calls would cost money, so we just verify configuration
+        llm = ChatOpenAI(
+            model=request.model,
+            api_key=request.api_key or "dummy",
+            base_url=request.base_url,
+            timeout=15,
+        )
+        llm.invoke("Hi", config={"max_tokens": 1})
         return {
             "ok": True,
-            "message": f"Configuration valid for {request.type.value} {request.model}"
+            "message": f"Connection successful for {request.type.value} {request.model}"
         }
     except Exception as e:
-        return {
-            "ok": False,
-            "message": f"Connection failed: {str(e)}"
-        }
+        error_msg = str(e)
+        if "401" in error_msg or "Authentication" in error_msg:
+            return {
+                "ok": False,
+                "message": "Authentication failed. Please check your API key."
+            }
+        elif "403" in error_msg:
+            return {
+                "ok": False,
+                "message": "Access forbidden. Please check your API key permissions."
+            }
+        elif "404" in error_msg:
+            return {
+                "ok": False,
+                "message": "Model not found. Please check the model name."
+            }
+        elif "connection" in error_msg.lower() or "timeout" in error_msg.lower():
+            return {
+                "ok": False,
+                "message": "Connection failed. Please check the Base URL."
+            }
+        else:
+            return {
+                "ok": False,
+                "message": f"Connection failed: {error_msg[:100]}"
+            }

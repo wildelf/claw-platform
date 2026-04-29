@@ -44,7 +44,8 @@ async function testConnection(row: any) {
         type: row.type,
         model: row.model,
         api_key: row.api_key || undefined,
-        base_url: row.base_url || undefined
+        base_url: row.base_url || undefined,
+        modality: row.modality || 'text'
       })
     })
     row.testResult = await response.json()
