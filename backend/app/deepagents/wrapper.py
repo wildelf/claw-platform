@@ -204,15 +204,15 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
                 backend=backend,
                 sources=skill_sources if skill_sources else [],
             )
-            # Re-inject ImageGenerationTool on re-creation if needed
-            image_tool = None
+            # Re-load tools and inject ImageGenerationTool on re-creation
+            tools = await self._load_tools()
             if self.agent.image_model_config_id:
                 image_model_config = await self.storage.get_model_config(self.agent.image_model_config_id)
                 if image_model_config:
-                    image_tool = ImageGenerationTool(model_config=image_model_config)
+                    tools.append(ImageGenerationTool(model_config=image_model_config))
             self._runner = create_deep_agent(
                 model=self._model,
-                tools=[image_tool] if image_tool else None,
+                tools=tools if tools else None,
                 system_prompt=self._system_prompt_override or self._build_system_prompt(),
                 skills=None,
                 middleware=[skill_middleware],
