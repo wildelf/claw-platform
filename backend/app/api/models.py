@@ -125,6 +125,10 @@ async def test_connection(
     # Image generation models (image-to-image, text-to-image): use images API
     if request.modality in ("image-to-image", "text-to-image"):
         try:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"[test_connection] modality={request.modality!r} base_url={request.base_url!r} model={request.model!r}")
+
             headers = {
                 "Authorization": f"Bearer {request.api_key}",
                 "Content-Type": "application/json",
@@ -143,6 +147,9 @@ async def test_connection(
                     }
                 ]
                 payload["aspect_ratio"] = "1:1"
+
+            logger.warning(f"[test_connection] payload={payload}")
+            logger.warning(f"[test_connection] url={request.base_url.rstrip('/')}/image_generation")
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
