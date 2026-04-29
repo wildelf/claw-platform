@@ -134,11 +134,12 @@ async def test_connection(
                 "prompt": "test prompt",
             }
             if request.modality == "image-to-image":
-                # subject_reference with a public test image URL
+                # image-to-image needs subject_reference but we use a tiny valid base64
+                # 1x1 red pixel PNG as minimal reference image
                 payload["subject_reference"] = [
                     {
                         "type": "character",
-                        "image_file": "https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png",
+                        "image_file": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg==",
                     }
                 ]
                 payload["aspect_ratio"] = "1:1"
