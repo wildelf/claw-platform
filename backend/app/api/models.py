@@ -152,7 +152,7 @@ async def test_connection(
                     url,
                     json=payload,
                     headers=headers,
-                    timeout=15.0,
+                    timeout=60.0,
                 )
             if response.status_code == 200:
                 return {
