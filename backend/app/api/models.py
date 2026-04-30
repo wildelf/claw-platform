@@ -168,7 +168,7 @@ async def test_connection(
                 }
             return {
                 "ok": False,
-                "message": f"Connection failed: HTTP {response.status_code} - {response.text[:100]}"
+                "message": f"[debug] url={request.base_url.rstrip('/')}/image_generation payload={payload} response={response.status_code} {response.text[:200]}"
             }
         except Exception as e:
             return {
