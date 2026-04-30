@@ -1,8 +1,11 @@
 """Model Config API routes."""
 
+import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
+
+logger = logging.getLogger(__name__)
 
 from app.api.deps import Storage, UserId
 from app.application.model_service import ModelService
@@ -143,8 +146,10 @@ async def test_connection(
                 payload["aspect_ratio"] = "1:1"
 
             async with httpx.AsyncClient() as client:
+                url = f"{request.base_url.rstrip('/')}/image_generation"
+                logger.info("Testing image connection: URL=%s, model=%s, modality=%s", url, request.model, request.modality)
                 response = await client.post(
-                    f"{request.base_url.rstrip('/')}/image_generation",
+                    url,
                     json=payload,
                     headers=headers,
                     timeout=15.0,
@@ -154,14 +159,16 @@ async def test_connection(
                     "ok": True,
                     "message": f"Connection successful for {request.model} image generation"
                 }
+            logger.warning("Image generation test failed: HTTP %s - %s", response.status_code, response.text)
             return {
                 "ok": False,
                 "message": f"Connection failed: HTTP {response.status_code} - {response.text[:150]}"
             }
         except Exception as e:
+            logger.exception("Image generation test failed: %s", e)
             return {
                 "ok": False,
-                "message": f"Connection failed: {str(e)[:100]}"
+                "message": f"Connection failed: {str(e)[:200]}"
             }
 
     # Text / image-to-text models: use ChatOpenAI /chat/completions
@@ -180,6 +187,7 @@ async def test_connection(
             "message": f"Connection successful for {request.type.value} {request.model}"
         }
     except Exception as e:
+        logger.exception("ChatOpenAI test failed: %s", e)
         error_msg = str(e)
         if "401" in error_msg or "Authentication" in error_msg:
             return {
