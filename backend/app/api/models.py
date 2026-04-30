@@ -128,31 +128,19 @@ async def test_connection(
     # Image generation models (image-to-image, text-to-image): use images API
     if request.modality in ("image-to-image", "text-to-image"):
         try:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f"[test_connection] modality={request.modality!r} base_url={request.base_url!r} model={request.model!r}")
-
             headers = {
                 "Authorization": f"Bearer {request.api_key}",
                 "Content-Type": "application/json",
             }
             payload: dict = {
                 "model": request.model,
-                "prompt": "test prompt",
+                "prompt": "a cute cat",
+                "n": 1,
             }
             if request.modality == "image-to-image":
-                # image-to-image needs subject_reference but we use a tiny valid base64
-                # 1x1 red pixel PNG as minimal reference image
-                payload["subject_reference"] = [
-                    {
-                        "type": "character",
-                        "image_file": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg==",
-                    }
-                ]
+                # For i2i test, we send a text-only request to verify auth connectivity.
+                # Real subject_reference requires a file_id or accessible URL.
                 payload["aspect_ratio"] = "1:1"
-
-            logger.warning(f"[test_connection] payload={payload}")
-            logger.warning(f"[test_connection] url={request.base_url.rstrip('/')}/image_generation")
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -168,7 +156,7 @@ async def test_connection(
                 }
             return {
                 "ok": False,
-                "message": f"[debug] url={request.base_url.rstrip('/')}/image_generation payload={payload} response={response.status_code} {response.text[:200]}"
+                "message": f"Connection failed: HTTP {response.status_code} - {response.text[:150]}"
             }
         except Exception as e:
             return {
