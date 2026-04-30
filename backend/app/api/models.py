@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.api.deps import Storage, UserId
 from app.application.model_service import ModelService
-from app.domain.model_config import ModelConfig, ModelProviderType
+from app.domain.model_config import ModelConfig, ModelModality, ModelProviderType
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/models", tags=["models"])
@@ -19,6 +19,7 @@ class CreateModelRequest(BaseModel):
     api_key: Optional[str] = None
     base_url: Optional[str] = None
     config: dict = Field(default_factory=dict)
+    modality: Optional[str] = "text"
 
 
 class UpdateModelRequest(BaseModel):
@@ -28,6 +29,7 @@ class UpdateModelRequest(BaseModel):
     api_key: Optional[str] = Field(default=None)
     base_url: Optional[str] = Field(default=None)
     config: Optional[dict] = Field(default=None)
+    modality: Optional[str] = None
 
 
 @router.post("", response_model=ModelConfig)
@@ -44,6 +46,7 @@ async def create_model(
         api_key=request.api_key,
         base_url=request.base_url,
         config=request.config,
+        modality=ModelModality(request.modality) if request.modality else ModelModality.TEXT,
         user_id=user_id,
     )
     service = ModelService(storage)
