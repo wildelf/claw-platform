@@ -77,7 +77,7 @@ class ImageGenerationTool(BaseTool):
             "revised_prompt": result["data"][0].get("revised_prompt"),
         }
 
-    def _invoke(self, tool_input: dict[str, Any], **kwargs) -> dict[str, Any]:
+    def _run(self, tool_input: dict[str, Any], **kwargs) -> dict[str, Any]:
         """Sync invoke."""
         import asyncio
         return asyncio.run(self._ainvoke(tool_input, **kwargs))
