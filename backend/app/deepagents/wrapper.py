@@ -6,10 +6,13 @@ agent execution.
 
 import asyncio
 import base64
+import logging
 import re
 import tempfile
 from pathlib import Path
 from typing import Any, AsyncGenerator, Optional
+
+logger = logging.getLogger(__name__)
 
 from deepagents import create_deep_agent
 from deepagents.graph import create_deep_agent
