@@ -56,7 +56,7 @@ class ImageGenerationTool(BaseTool):
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    f"{base_url.rstrip('/')}/v1/images/generations",
+                    f"{base_url.rstrip('/')}/image_generation",
                     json=payload,
                     headers=headers,
                     timeout=60.0,
