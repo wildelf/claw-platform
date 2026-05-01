@@ -253,6 +253,13 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
                                 "url": img["url"],
                                 "alt": img["alt"],
                             }
+                    # Also check if data itself is a tool result with image_url
+                    if isinstance(data, dict) and data.get("image_url"):
+                        yield {
+                            "type": "image",
+                            "url": data["image_url"],
+                            "alt": data.get("revised_prompt", ""),
+                        }
                 elif mode == "updates":
                     # Node/task updates - extract relevant info
                     update = self._extract_update_content(data)
@@ -260,6 +267,13 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
                         yield {
                             "type": "update",
                             "data": update,
+                        }
+                    # Check if update contains tool result with image_url
+                    if isinstance(data, dict) and data.get("image_url"):
+                        yield {
+                            "type": "image",
+                            "url": data["image_url"],
+                            "alt": data.get("revised_prompt", ""),
                         }
             elif isinstance(chunk, dict):
                 # Fallback for single mode or direct dict
