@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
@@ -35,7 +35,8 @@ const videoModelName = computed(() => {
 
 const running = ref(false)
 const taskInput = ref('')
-const outputRef = ref<HTMLPreElement | null>(null)
+const outputRef = ref<HTMLDivElement | null>(null)
+const outputHtml = ref('<span class="text-gray-400">Waiting for response...</span>')
 
 // Event state
 const currentEvent = ref<{
@@ -98,17 +99,27 @@ function getEventLabel(type: string): string {
   }
 }
 
-function appendOutput(text: string) {
-  if (outputRef.value) {
-    outputRef.value.textContent = (outputRef.value.textContent || '') + text
-    outputRef.value.scrollTop = outputRef.value.scrollHeight
-  }
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/\n/g, '<br>')
+}
+
+function appendOutput(html: string) {
+  outputHtml.value += html
+  nextTick(() => {
+    if (outputRef.value) {
+      outputRef.value.scrollTop = outputRef.value.scrollHeight
+    }
+  })
 }
 
 function clearOutput() {
-  if (outputRef.value) {
-    outputRef.value.textContent = ''
-  }
+  outputHtml.value = ''
   events.value = []
   thinkingContent.value = ''
   currentEvent.value = null
@@ -226,20 +237,26 @@ function handleEvent(data: any) {
       // Remove AI thinking tags
       content = content.replace(/<think>[\s\S]*?<\/think>/gi, '')
       if (content.trim()) {
-        appendOutput(content)
+        appendOutput(escapeHtml(content))
       }
       break
 
     case 'done':
       currentEvent.value = null
-      appendOutput('\n\n--- 完成 ---\n')
+      appendOutput(`<span class="text-gray-400">--- 完成 ---</span>\n`)
       events.value.push({ ...event, content: '任务完成' })
       break
 
     case 'error':
       currentEvent.value = null
-      appendOutput(`\nError: ${data.error}\n`)
+      appendOutput(`<span class="text-red-600">Error: ${escapeHtml(data.error)}</span>\n`)
       events.value.push({ ...event, content: (data.error || '').substring(0, 100) + ((data.error || '').length > 100 ? '...' : '') })
+      break
+
+    case 'image':
+      currentEvent.value = null
+      appendOutput(`<div class="my-2"><img src="${data.url}" alt="${escapeHtml(data.alt || 'Generated image')}" class="max-w-md rounded-lg shadow" /></div>`)
+      events.value.push({ ...event, type: 'image', url: data.url, alt: data.alt })
       break
   }
 }
@@ -385,7 +402,7 @@ function handleEdit() {
           <!-- Output -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Output</label>
-            <pre ref="outputRef" class="bg-gray-100 p-4 rounded text-sm overflow-x-auto max-h-96 whitespace-pre-wrap">Waiting for response...</pre>
+            <div ref="outputRef" v-html="outputHtml" class="bg-gray-100 p-4 rounded text-sm overflow-x-auto max-h-96 whitespace-pre-wrap"></div>
           </div>
         </div>
       </Card>
