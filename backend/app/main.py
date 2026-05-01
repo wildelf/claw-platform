@@ -1,10 +1,20 @@
 """FastAPI application entry point."""
 
+import logging
+import sys
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import agents, skills, tools, models, feedback
 from app.config import settings
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
 
 app = FastAPI(
     title=settings.app.name,
