@@ -1,11 +1,14 @@
 """Image generation tool using configured image model."""
 
-import httpx
+import logging
 from typing import Any, Literal
 
+import httpx
 from langchain_core.tools import BaseTool
 
 from app.domain.model_config import ModelConfig
+
+logger = logging.getLogger(__name__)
 
 
 class ImageGenerationTool(BaseTool):
@@ -28,6 +31,7 @@ class ImageGenerationTool(BaseTool):
 
     async def _ainvoke(self, tool_input: dict[str, Any], **kwargs) -> dict[str, Any]:
         """Execute image generation asynchronously."""
+        logger.info("ImageGenerationTool invoked with input: %s", tool_input)
         prompt = tool_input.get("prompt", "")
         if not prompt:
             return {"error": "prompt is required"}
@@ -55,23 +59,31 @@ class ImageGenerationTool(BaseTool):
 
         try:
             async with httpx.AsyncClient() as client:
+                url = f"{base_url.rstrip('/')}/image_generation"
+                logger.info("ImageGenerationTool making request to: %s", url)
                 response = await client.post(
-                    f"{base_url.rstrip('/')}/image_generation",
+                    url,
                     json=payload,
                     headers=headers,
                     timeout=60.0,
                 )
+                logger.info("ImageGenerationTool response status: %s", response.status_code)
+                logger.info("ImageGenerationTool response body: %s", response.text[:500])
                 response.raise_for_status()
         except httpx.TimeoutException:
+            logger.error("ImageGenerationTool timeout")
             return {"error": "Image generation timed out"}
         except httpx.HTTPError as e:
+            logger.error("ImageGenerationTool HTTP error: %s", e)
             return {"error": f"Image generation request failed: {e}"}
 
         try:
             result = response.json()
         except Exception:
+            logger.error("ImageGenerationTool invalid JSON response")
             return {"error": "Invalid response from image model"}
 
+        logger.info("ImageGenerationTool result: %s", result)
         return {
             "image_url": result["data"][0]["url"],
             "revised_prompt": result["data"][0].get("revised_prompt"),

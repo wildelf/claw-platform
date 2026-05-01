@@ -271,6 +271,7 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
                             yield skill_event
 
                         for tool_info in tool_calls:
+                            logger.info("Tool call detected: %s with input: %s", tool_info["name"], tool_info.get("input"))
                             yield {
                                 "type": "tool_call",
                                 "tool": tool_info["name"],
