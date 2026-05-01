@@ -253,8 +253,10 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
                                 "url": img["url"],
                                 "alt": img["alt"],
                             }
-                    # Also check if data itself is a tool result with image_url
+                    # Check if data itself is a tool result with image_url
+                    logger.info("messages mode data type: %s, data: %s", type(data).__name__, str(data)[:300])
                     if isinstance(data, dict) and data.get("image_url"):
+                        logger.info("Emitting image event from messages mode")
                         yield {
                             "type": "image",
                             "url": data["image_url"],
@@ -262,6 +264,7 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
                         }
                 elif mode == "updates":
                     # Node/task updates - extract relevant info
+                    logger.info("updates mode data type: %s, data: %s", type(data).__name__, str(data)[:300])
                     update = self._extract_update_content(data)
                     if update:
                         yield {
@@ -270,6 +273,7 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
                         }
                     # Check if update contains tool result with image_url
                     if isinstance(data, dict) and data.get("image_url"):
+                        logger.info("Emitting image event from updates mode")
                         yield {
                             "type": "image",
                             "url": data["image_url"],
