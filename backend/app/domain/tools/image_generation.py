@@ -84,9 +84,27 @@ class ImageGenerationTool(BaseTool):
             return {"error": "Invalid response from image model"}
 
         logger.info("ImageGenerationTool result: %s", result)
+        # Handle different API response formats
+        data = result.get("data", {})
+        if isinstance(data, dict):
+            # MiniMax format: data.image_urls [...]
+            image_url = data.get("image_urls", [None])[0]
+        else:
+            # OpenAI format: data[0].url
+            image_url = data[0].get("url") if data else None
+
+        if not image_url:
+            return {"error": f"No image_url in response: {result}"}
+
+        revised_prompt = None
+        if isinstance(data, dict):
+            revised_prompt = data.get("revised_prompt")
+        else:
+            revised_prompt = data[0].get("revised_prompt") if data else None
+
         return {
-            "image_url": result["data"][0]["url"],
-            "revised_prompt": result["data"][0].get("revised_prompt"),
+            "image_url": image_url,
+            "revised_prompt": revised_prompt,
         }
 
     def _run(self, tool_input: dict[str, Any], **kwargs) -> dict[str, Any]:
