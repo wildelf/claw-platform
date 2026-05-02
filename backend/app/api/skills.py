@@ -189,7 +189,9 @@ async def execute_skill(
     Creates a minimal agent with just the target skill and runs
     the task through deepagents, streaming results back.
     """
+    import logging
     import json
+    logger = logging.getLogger(__name__)
     from fastapi.responses import StreamingResponse
     from app.domain.agent import Agent
     from app.domain.base import EntityId
@@ -200,15 +202,9 @@ async def execute_skill(
     if not skill:
         raise HTTPException(status_code=404, detail="Skill not found")
 
-    # Get skill files to include in context
+    # Get skill files to include in context (for system prompt only, not backstory)
     skill_files = await storage.list_skill_files(skill_id)
-    skill_context = ""
-    for filename in skill_files:
-        content = await storage.get_skill_file(skill_id, filename)
-        if content:
-            if isinstance(content, bytes):
-                content = content.decode("utf-8")
-            skill_context += f"\n--- {filename} ---\n{content}"
+    skill_summary = ", ".join(f"'{f}'" for f in skill_files) if skill_files else "SKILL.md"
 
     # Create a minimal agent for running the skill
     agent = Agent(
@@ -217,7 +213,7 @@ async def execute_skill(
         description=f"Executes the {skill.name} skill",
         role="skill executor",
         goal=request.task,
-        backstory=f"You have access to the following skill:\n{skill_context}",
+        backstory=f"This agent executes the '{skill.name}' skill. Skill files: {skill_summary}. The agent will read the SKILL.md file to understand how to execute the task.",
         skill_ids=[EntityId(skill_id)],
         tool_ids=[],
         text_model_config_id=EntityId(request.model_config_id) if request.model_config_id else None,
@@ -245,6 +241,7 @@ async def execute_skill(
 
             async for event in runner.run(request.task):
                 event_type = event.get("type", "content")
+                logger.info(f"Skill execution event: {event_type} - {str(event)[:200]}")
                 if event_type == "content":
                     content = event.get("content", "")
                     content = content.replace("<think>", "").replace("", "")
@@ -255,6 +252,10 @@ async def execute_skill(
                 elif event_type == "tool_call":
                     tool_name = event.get("tool", "unknown")
                     yield f"data: {json.dumps({'type': 'tool_call', 'tool': tool_name})}\n\n"
+                elif event_type == "thinking":
+                    yield f"data: {json.dumps({'type': 'thinking', 'message': event.get('message', '')})}\n\n"
+                elif event_type == "preparing":
+                    yield f"data: {json.dumps({'type': 'preparing', 'message': event.get('message', '')})}\n\n"
                 else:
                     try:
                         yield f"data: {json.dumps(event)}\n\n"
@@ -264,6 +265,7 @@ async def execute_skill(
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
         except Exception as e:
+            logger.exception("Error in skill execution")
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
 
     return StreamingResponse(
@@ -430,6 +432,8 @@ async def generate_skill(
                     content = file_info.get("content", "")
                     if filename and content:
                         await storage.save_skill_file(skill_id, filename, content.encode("utf-8"))
+                        # Emit file event so frontend can display file tabs
+                        yield f"data: {json.dumps({'type': 'file', 'filename': filename, 'content': content})}\n\n"
             except Exception as e:
                 yield f"data: {json.dumps({'type': 'error', 'error': f'Failed to save skill files: {str(e)}'})}\n\n"
 

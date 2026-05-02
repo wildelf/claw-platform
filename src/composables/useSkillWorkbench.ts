@@ -72,8 +72,8 @@ export function useSkillWorkbench() {
   // Computed
   const isEditMode = computed(() => mode.value === 'edit')
   const isGenerating = computed(() => generationProgress.value === 'generating')
-  const canSave = computed(() => generationProgress.value === 'success')
-  const canTest = computed(() => generationProgress.value === 'success' || isEditMode.value)
+  const canSave = computed(() => generationProgress.value === 'success' || isEditMode.value)
+  const canTest = computed(() => (generationProgress.value === 'success' && skillId.value) || isEditMode.value)
   const allFiles = computed(() => {
     const files: Record<string, string> = {}
     // In edit mode, include loaded files
@@ -212,10 +212,19 @@ export function useSkillWorkbench() {
             } else if (data.type === 'done') {
               appendOutput('\n\n✓ Skill generation completed!')
               generationProgress.value = 'success'
+              // Set skillId so user can run test immediately
+              if (data.skill_id) {
+                skillId.value = data.skill_id
+              }
             } else if (data.type === 'start') {
               appendOutput('Starting skill generation...\n')
             } else if (data.type === 'file') {
-              currentFile = data.path || ''
+              // Store generated file for display in file tabs
+              const filename = data.filename || ''
+              const content = data.content || ''
+              if (filename && content) {
+                generatedFiles.value[filename] = content
+              }
             }
           } catch (e) {}
         }
@@ -232,6 +241,15 @@ export function useSkillWorkbench() {
             if (data.type === 'content') appendOutput(data.content)
             else if (data.type === 'done') {
               generationProgress.value = 'success'
+              if (data.skill_id) {
+                skillId.value = data.skill_id
+              }
+            } else if (data.type === 'file') {
+              const filename = data.filename || ''
+              const content = data.content || ''
+              if (filename && content) {
+                generatedFiles.value[filename] = content
+              }
             }
           } catch (e) {}
         }
@@ -320,6 +338,12 @@ export function useSkillWorkbench() {
             if (data.type === 'content') appendOutput(data.content)
             else if (data.type === 'done') {
               generationProgress.value = 'success'
+            } else if (data.type === 'file') {
+              const filename = data.filename || ''
+              const content = data.content || ''
+              if (filename && content) {
+                generatedFiles.value[filename] = content
+              }
             }
           } catch (e) {}
         }
@@ -368,6 +392,9 @@ export function useSkillWorkbench() {
             config: localConfig.value
           }
         })
+        // Set skillId after creation so test can run
+        skillId.value = skill.id
+        mode.value = 'edit'
         router.push('/skills')
       } else if (skillId.value) {
         await skillsStore.updateSkill(skillId.value, {

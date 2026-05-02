@@ -163,7 +163,7 @@ function onFileClick(name: string) {
           <div
             class="bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-x-auto"
           >
-            <pre class="text-sm text-gray-800 whitespace-pre-wrap">{{ JSON.stringify(testResult.output, null, 2) }}</pre>
+            <pre class="text-sm text-gray-800 whitespace-pre-wrap font-mono">{{ typeof testResult.output?.result === 'string' ? testResult.output.result : JSON.stringify(testResult.output, null, 2) }}</pre>
           </div>
 
           <!-- Metrics -->
