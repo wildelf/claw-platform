@@ -15,6 +15,12 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
+        // Disable buffering for SSE
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            delete proxyRes.headers['x-accel-buffering']
+          })
+        }
       }
     }
   }

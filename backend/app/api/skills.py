@@ -245,9 +245,16 @@ async def generate_skill(
             full_response = ""
             await runner.create()
 
-            async for chunk in runner.run(f"Create a skill called '{request.name}' that does: {request.description}"):
-                if chunk:
-                    content = chunk.replace("<think>", "").replace("", "")
+            async for event in runner.run(f"Create a skill called '{request.name}' that does: {request.description}"):
+                # Handle both dict events (messages mode) and string chunks
+                if isinstance(event, dict):
+                    content = event.get("content", "")
+                elif isinstance(event, str):
+                    content = event
+                else:
+                    continue
+                if content:
+                    content = content.replace("<think>", "").replace("</think>", "")
                     if content.strip():
                         full_response += content
                         yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"

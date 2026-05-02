@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { Skill } from '@/types'
+import type { Skill, SkillConfig } from '@/types'
 import { skillsApi } from '@/api/skills'
 
 export const useSkillsStore = defineStore('skills', () => {
@@ -9,6 +9,21 @@ export const useSkillsStore = defineStore('skills', () => {
   const files = ref<Map<string, Record<string, string>>>(new Map())
   const loading = ref(false)
   const error = ref<string | null>(null)
+
+  // New state for creation workbench
+  const generationProgress = ref<'idle' | 'generating' | 'success' | 'error'>('idle')
+  const generationOutput = ref('')
+  const testResult = ref<{output: any; metrics: any} | null>(null)
+  const skillConfig = ref<SkillConfig>({
+    model_id: null,
+    timeout_ms: 30000,
+    max_retries: 3,
+    rate_limit: null,
+    cache_enabled: false,
+    cache_ttl_seconds: 300,
+    priority: 'medium',
+    max_concurrent: 5
+  })
 
   async function fetchSkills(): Promise<void> {
     loading.value = true
@@ -59,6 +74,10 @@ export const useSkillsStore = defineStore('skills', () => {
     files,
     loading,
     error,
+    generationProgress,
+    generationOutput,
+    testResult,
+    skillConfig,
     fetchSkills,
     fetchSkill,
     fetchSkillFiles,
@@ -95,6 +114,10 @@ export const useSkillsStore = defineStore('skills', () => {
       } finally {
         loading.value = false
       }
+    },
+    async testSkill(id: string, input: any): Promise<{output: any; metrics: any}> {
+      // Placeholder - implement when backend supports it
+      return { output: { result: 'test not implemented' }, metrics: { duration_ms: 0, tokens_used: 0, cache_hit: false } }
     }
   }
 })

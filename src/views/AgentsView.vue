@@ -31,7 +31,7 @@ function getStatusVariant(status: string): 'success' | 'warning' | 'danger' | 'd
 }
 
 function handleRun(agentId: string) {
-  console.log('Run agent:', agentId)
+  router.push(`/agents/${agentId}`)
 }
 
 function handleEdit(agentId: string) {
