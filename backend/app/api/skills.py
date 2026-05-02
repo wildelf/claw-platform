@@ -165,9 +165,108 @@ async def delete_skill_file(
     return {"ok": True}
 
 
-class GenerateSkillRequest(BaseModel):
-    name: str = Field(max_length=64)
-    description: str = Field(max_length=1024)
+class ExecuteSkillRequest(BaseModel):
+    task: str = Field(max_length=5000, description="Task to execute with the skill")
+    model_config_id: str | None = Field(default=None, description="Model config ID to use")
+
+
+@router.post("/{skill_id}/execute")
+async def execute_skill(
+    skill_id: str,
+    request: ExecuteSkillRequest,
+    storage: Storage,
+    user_id: UserId,
+):
+    """Execute a skill with a given task.
+
+    Creates a minimal agent with just the target skill and runs
+    the task through deepagents, streaming results back.
+    """
+    import json
+    from fastapi.responses import StreamingResponse
+    from app.domain.agent import Agent
+    from app.domain.base import EntityId
+    from app.deepagents.wrapper import DeepAgentsRunner
+
+    # Get the skill
+    skill = await storage.get_skill(skill_id)
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+
+    # Get skill files to include in context
+    skill_files = await storage.list_skill_files(skill_id)
+    skill_context = ""
+    for filename in skill_files:
+        content = await storage.get_skill_file(skill_id, filename)
+        if content:
+            if isinstance(content, bytes):
+                content = content.decode("utf-8")
+            skill_context += f"\n--- {filename} ---\n{content}"
+
+    # Create a minimal agent for running the skill
+    agent = Agent(
+        id=EntityId(f"skill-exec-{skill_id}"),
+        name=f"Skill Executor: {skill.name}",
+        description=f"Executes the {skill.name} skill",
+        role="skill executor",
+        goal=request.task,
+        backstory=f"You have access to the following skill:\n{skill_context}",
+        skill_ids=[EntityId(skill_id)],
+        tool_ids=[],
+        text_model_config_id=EntityId(request.model_config_id) if request.model_config_id else None,
+        user_id=user_id,
+    )
+
+    # Override system prompt to emphasize skill execution
+    system_prompt = (
+        f"You are executing the '{skill.name}' skill. "
+        f"Read and follow the SKILL.md file carefully to complete the task. "
+        f"The skill description is: {skill.description}"
+    )
+
+    runner = DeepAgentsRunner(
+        agent,
+        storage,
+        system_prompt_override=system_prompt,
+    )
+
+    async def stream_events():
+        try:
+            yield f"data: {json.dumps({'type': 'start', 'skill_id': skill_id, 'task': request.task})}\n\n"
+
+            await runner.create()
+
+            async for event in runner.run(request.task):
+                event_type = event.get("type", "content")
+                if event_type == "content":
+                    content = event.get("content", "")
+                    content = content.replace("<think>", "").replace("", "")
+                    if content.strip():
+                        yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
+                elif event_type == "skill_reading":
+                    yield f"data: {json.dumps({'type': 'skill_reading', 'file': event.get('file', '')})}\n\n"
+                elif event_type == "tool_call":
+                    tool_name = event.get("tool", "unknown")
+                    yield f"data: {json.dumps({'type': 'tool_call', 'tool': tool_name})}\n\n"
+                else:
+                    try:
+                        yield f"data: {json.dumps(event)}\n\n"
+                    except (TypeError, ValueError):
+                        pass
+
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+
+    return StreamingResponse(
+        stream_events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # Path to the skill-creator skill
