@@ -165,6 +165,13 @@ async def delete_skill_file(
     return {"ok": True}
 
 
+class GenerateSkillRequest(BaseModel):
+    name: str = Field(max_length=64, description="Skill name")
+    description: str = Field(max_length=1024, description="Skill description")
+    prompt: str | None = Field(default=None, description="Optional prompt/instruction for generation")
+    config: dict | None = Field(default=None, description="Optional config overrides")
+
+
 class ExecuteSkillRequest(BaseModel):
     task: str = Field(max_length=5000, description="Task to execute with the skill")
     model_config_id: str | None = Field(default=None, description="Model config ID to use")
