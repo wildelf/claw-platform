@@ -206,30 +206,27 @@ export function useSkillWorkbench() {
         if (line.startsWith('data: ')) {
           try {
             const data = JSON.parse(line.slice(6))
-            // Deduplicate by event id
+            // Deduplicate by type + skill_id + filename
             const eventId = data.type + (data.skill_id || '') + (data.filename || '')
-            if (seenEvents.has(eventId) && data.type === 'content') {
-              // Skip duplicate content events
-            } else {
-              seenEvents.add(eventId)
-              if (data.type === 'content') {
-                appendOutput(data.content)
-              } else if (data.type === 'error') {
-                appendOutput('\nError: ' + data.error)
-              } else if (data.type === 'done') {
-                appendOutput('\n\n✓ Skill generation completed!')
-                generationProgress.value = 'success'
-                if (data.skill_id) {
-                  skillId.value = data.skill_id
-                }
-              } else if (data.type === 'start') {
-                appendOutput('Starting skill generation...\n')
-              } else if (data.type === 'file') {
-                const filename = data.filename || ''
-                const content = data.content || ''
-                if (filename && content) {
-                  generatedFiles.value[filename] = content
-                }
+            if (seenEvents.has(eventId)) continue
+            seenEvents.add(eventId)
+            if (data.type === 'content') {
+              appendOutput(data.content)
+            } else if (data.type === 'error') {
+              appendOutput('\nError: ' + data.error)
+            } else if (data.type === 'done') {
+              appendOutput('\n\n✓ Skill generation completed!')
+              generationProgress.value = 'success'
+              if (data.skill_id) {
+                skillId.value = data.skill_id
+              }
+            } else if (data.type === 'start') {
+              appendOutput('Starting skill generation...\n')
+            } else if (data.type === 'file') {
+              const filename = data.filename || ''
+              const content = data.content || ''
+              if (filename && content) {
+                generatedFiles.value[filename] = content
               }
             }
           } catch (e) {}
