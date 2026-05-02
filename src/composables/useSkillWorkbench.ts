@@ -195,6 +195,7 @@ export function useSkillWorkbench() {
 
     let buffer = ''
     let currentFile = ''
+    const seenEvents = new Set<string>()
 
     xhr.onprogress = () => {
       buffer += xhr.responseText.substring(buffer.length)
@@ -205,25 +206,30 @@ export function useSkillWorkbench() {
         if (line.startsWith('data: ')) {
           try {
             const data = JSON.parse(line.slice(6))
-            if (data.type === 'content') {
-              appendOutput(data.content)
-            } else if (data.type === 'error') {
-              appendOutput('\nError: ' + data.error)
-            } else if (data.type === 'done') {
-              appendOutput('\n\n✓ Skill generation completed!')
-              generationProgress.value = 'success'
-              // Set skillId so user can run test immediately
-              if (data.skill_id) {
-                skillId.value = data.skill_id
-              }
-            } else if (data.type === 'start') {
-              appendOutput('Starting skill generation...\n')
-            } else if (data.type === 'file') {
-              // Store generated file for display in file tabs
-              const filename = data.filename || ''
-              const content = data.content || ''
-              if (filename && content) {
-                generatedFiles.value[filename] = content
+            // Deduplicate by event id
+            const eventId = data.type + (data.skill_id || '') + (data.filename || '')
+            if (seenEvents.has(eventId) && data.type === 'content') {
+              // Skip duplicate content events
+            } else {
+              seenEvents.add(eventId)
+              if (data.type === 'content') {
+                appendOutput(data.content)
+              } else if (data.type === 'error') {
+                appendOutput('\nError: ' + data.error)
+              } else if (data.type === 'done') {
+                appendOutput('\n\n✓ Skill generation completed!')
+                generationProgress.value = 'success'
+                if (data.skill_id) {
+                  skillId.value = data.skill_id
+                }
+              } else if (data.type === 'start') {
+                appendOutput('Starting skill generation...\n')
+              } else if (data.type === 'file') {
+                const filename = data.filename || ''
+                const content = data.content || ''
+                if (filename && content) {
+                  generatedFiles.value[filename] = content
+                }
               }
             }
           } catch (e) {}
@@ -238,8 +244,12 @@ export function useSkillWorkbench() {
         if (line.startsWith('data: ')) {
           try {
             const data = JSON.parse(line.slice(6))
-            if (data.type === 'content') appendOutput(data.content)
-            else if (data.type === 'done') {
+            const eventId = data.type + (data.skill_id || '') + (data.filename || '')
+            if (seenEvents.has(eventId)) continue
+            seenEvents.add(eventId)
+            if (data.type === 'content') {
+              appendOutput(data.content)
+            } else if (data.type === 'done') {
               generationProgress.value = 'success'
               if (data.skill_id) {
                 skillId.value = data.skill_id
@@ -303,6 +313,7 @@ export function useSkillWorkbench() {
     xhr.setRequestHeader('Content-Type', 'application/json')
 
     let buffer = ''
+    const seenModEvents = new Set<string>()
 
     xhr.onprogress = () => {
       buffer += xhr.responseText.substring(buffer.length)
@@ -313,6 +324,9 @@ export function useSkillWorkbench() {
         if (line.startsWith('data: ')) {
           try {
             const data = JSON.parse(line.slice(6))
+            const eventId = data.type + (data.skill_id || '') + (data.filename || '')
+            if (seenModEvents.has(eventId)) continue
+            seenModEvents.add(eventId)
             if (data.type === 'content') {
               appendOutput(data.content)
             } else if (data.type === 'error') {
@@ -322,6 +336,12 @@ export function useSkillWorkbench() {
               generationProgress.value = 'success'
             } else if (data.type === 'start') {
               appendOutput('Applying modifications...\n')
+            } else if (data.type === 'file') {
+              const filename = data.filename || ''
+              const content = data.content || ''
+              if (filename && content) {
+                generatedFiles.value[filename] = content
+              }
             }
           } catch (e) {}
         }
@@ -335,8 +355,12 @@ export function useSkillWorkbench() {
         if (line.startsWith('data: ')) {
           try {
             const data = JSON.parse(line.slice(6))
-            if (data.type === 'content') appendOutput(data.content)
-            else if (data.type === 'done') {
+            const eventId = data.type + (data.skill_id || '') + (data.filename || '')
+            if (seenModEvents.has(eventId)) continue
+            seenModEvents.add(eventId)
+            if (data.type === 'content') {
+              appendOutput(data.content)
+            } else if (data.type === 'done') {
               generationProgress.value = 'success'
             } else if (data.type === 'file') {
               const filename = data.filename || ''
