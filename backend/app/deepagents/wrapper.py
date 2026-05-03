@@ -25,6 +25,7 @@ from app.domain.tool import Tool, ToolType
 from app.domain.model_config import ModelProviderType
 from app.domain.tools.image_generation import ImageGenerationTool
 from app.infrastructure.storage.sqlite import SQLiteStorage
+from app.domain.tools.script_execution import ScriptExecutionTool
 from app.infrastructure.mcp.adapter import MCPAdapter
 from app.config import settings
 
@@ -475,6 +476,12 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
     async def _load_tools(self) -> list:
         """Load tools from storage."""
         tools = []
+
+        # Add OpenSandbox script execution tool if enabled
+        if getattr(settings, 'opensandbox', None) and settings.opensandbox.enabled:
+            script_tool = ScriptExecutionTool(opensandbox_url=settings.opensandbox.base_url)
+            tools.append(script_tool)
+
         for tool_id in self.agent.tool_ids:
             tool = await self.storage.get_tool(tool_id)
             if not tool:

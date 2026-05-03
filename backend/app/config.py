@@ -65,6 +65,14 @@ class SkillCreatorConfig(BaseModel):
     path: str = ""
 
 
+class OpenSandboxConfig(BaseModel):
+    enabled: bool = False
+    base_url: str = "http://127.0.0.1:8080"
+    default_image: str = "python:3.12-slim"
+    timeout: int = 300
+    memory_limit: str = "512Mi"
+
+
 class Settings(BaseSettings):
     app: AppConfig = AppConfig()
     storage: StorageConfig = StorageConfig()
@@ -72,6 +80,7 @@ class Settings(BaseSettings):
     models: ModelsConfig
     evolution: EvolutionConfig = EvolutionConfig()
     skill_creator: SkillCreatorConfig = SkillCreatorConfig()
+    opensandbox: OpenSandboxConfig = OpenSandboxConfig()
 
     @classmethod
     def from_yaml(cls, path: Path | str) -> "Settings":
