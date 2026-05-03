@@ -267,6 +267,7 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
                     except Exception as e:
                         logger.warning(f"_get_backend_for_tool_call: failed to resolve callable backend: {e}")
                 return None
+            logger.info(f"_get_backend_for_tool_call: returning self._backend, type={type(self._backend).__name__}")
             return self._backend
 
         logger.warning("_get_backend_for_tool_call: self._backend is None")
@@ -288,6 +289,16 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
         filename = file_path.split("/")[-1] if "/" in file_path else file_path
         logger.info(f"_resolve_skill_file_path_with_backend: file_path={file_path}, skill_id={skill_id}")
 
+        # First, try to read the file directly - if it exists, no rewriting needed
+        try:
+            direct_read = backend.read(file_path)
+            if direct_read.file_data and not direct_read.error:
+                logger.info(f"_resolve_skill_file_path_with_backend: file already exists at {file_path}")
+                return None  # No rewriting needed
+            logger.info(f"_resolve_skill_file_path_with_backend: file not found at {file_path}, trying to find correct path")
+        except Exception as e:
+            logger.warning(f"_resolve_skill_file_path_with_backend: error reading {file_path}: {e}")
+
         # Try to find the actual skill directory by listing /skills/
         try:
             ls_result = backend.ls("/skills/")
@@ -295,41 +306,28 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
             if ls_result.error:
                 logger.warning(f"_resolve_skill_file_path_with_backend: ls error = {ls_result.error}")
             if not ls_result.entries:
-                logger.info("_resolve_skill_file_path_with_backend: ls returned no entries")
+                logger.info("_resolve_skill_file_path_with_backend: ls returned no entries, trying glob")
                 # Try to find any skill directory by globbing
                 try:
-                    glob_result = backend.glob("/skills/*/")
+                    glob_result = backend.glob("/*/SKILL.md", path="/skills")
                     logger.info(f"_resolve_skill_file_path_with_backend: glob result = {glob_result}")
                     if glob_result.matches:
                         for match in glob_result.matches:
-                            if match.get("is_dir"):
-                                entry_path = match.get("path", "")
-                                skill_md_path = f"{entry_path}/{filename}"
-                                read_result = backend.read(skill_md_path)
-                                if read_result.file_data and not read_result.error:
-                                    logger.info(f"_resolve_skill_file_path_with_backend: found valid skill at {entry_path}")
-                                    return skill_md_path
+                            match_path = match.get("path", "")
+                            if filename in match_path or match_path.endswith("/SKILL.md"):
+                                skill_dir = match_path.rsplit("/", 1)[0]
+                                logger.info(f"_resolve_skill_file_path_with_backend: found skill via glob at {skill_dir}")
+                                return match_path
                 except Exception as e:
                     logger.warning(f"_resolve_skill_file_path_with_backend: glob error: {e}")
                 return None
 
+            # Iterate through entries and find first valid skill
             for entry in ls_result.entries:
                 if not entry.get("is_dir"):
                     continue
                 entry_path = entry.get("path", "")
                 logger.info(f"_resolve_skill_file_path_with_backend: checking entry_path={entry_path}")
-
-                # Check if this is the skill we're looking for by ID
-                if skill_id and skill_id in entry_path:
-                    logger.info(f"_resolve_skill_file_path_with_backend: matched by skill_id {skill_id} -> {entry_path}")
-                    return f"{entry_path}/{filename}"
-
-            # No direct ID match - try to find any valid skill directory
-            # and use it (for single-skill execution, there's only one skill anyway)
-            for entry in ls_result.entries:
-                if not entry.get("is_dir"):
-                    continue
-                entry_path = entry.get("path", "")
 
                 # Try to read SKILL.md from this directory
                 skill_md_path = f"{entry_path}/{filename}"
@@ -338,16 +336,7 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
                     if read_result.file_data is None or read_result.error:
                         continue
 
-                    content = read_result.file_data.get("content", "")
-
-                    # Check if this skill's name matches what the AI is looking for
-                    if skill_id:
-                        if skill_id.lower() in content.lower():
-                            logger.info(f"_resolve_skill_file_path_with_backend: matched by slug '{skill_id}' in content")
-                            return skill_md_path
-
-                    # For single-skill execution, just return the first valid skill
-                    logger.info(f"_resolve_skill_file_path_with_backend: using first available skill at {entry_path}")
+                    logger.info(f"_resolve_skill_file_path_with_backend: found valid skill at {skill_md_path}")
                     return skill_md_path
                 except Exception as e:
                     logger.warning(f"_resolve_skill_file_path_with_backend: error reading {skill_md_path}: {e}")
