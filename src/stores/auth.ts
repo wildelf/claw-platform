@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { User } from '@/types'
+import { login as loginApi, register as registerApi } from '@/api/auth'
 
 const TOKEN_KEY = 'auth_token'
 
@@ -23,16 +24,24 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!token.value && !!user.value)
 
   async function login(username: string, password: string): Promise<void> {
-    // Mock implementation
-    token.value = 'mock_token_' + Date.now()
-    user.value = { id: '1', username, email: `${username}@example.com` }
+    const response = await loginApi({ username, password })
+    token.value = response.access_token
+    user.value = {
+      id: response.user_id,
+      username: response.username,
+      email: '',
+    }
     setStoredToken(token.value)
   }
 
   async function register(username: string, email: string, password: string): Promise<void> {
-    // Mock implementation
-    token.value = 'mock_token_' + Date.now()
-    user.value = { id: '1', username, email }
+    const response = await registerApi({ username, email, password })
+    token.value = response.access_token
+    user.value = {
+      id: response.user_id,
+      username: response.username,
+      email,
+    }
     setStoredToken(token.value)
   }
 
