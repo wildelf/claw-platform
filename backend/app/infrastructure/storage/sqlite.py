@@ -533,3 +533,58 @@ class SQLiteStorage:
             query = query.offset(offset).limit(limit)
             result = await session.execute(query)
             return [self._to_feedback(row) for row in result.scalars().all()]
+
+    # User operations
+    async def save_user(self, user: User) -> None:
+        async with self.async_session() as session:
+            from sqlalchemy import select
+
+            result = await session.execute(
+                select(UserModel).where(UserModel.id == user.id)
+            )
+            existing = result.scalar_one_or_none()
+
+            model = UserModel(
+                id=user.id,
+                username=user.username,
+                email=user.email,
+                password_hash=user.password_hash,
+                role=user.role,
+                is_active=user.is_active,
+                created_at=user.created_at,
+                updated_at=user.updated_at,
+            )
+
+            if existing:
+                for key in ['username', 'email', 'password_hash', 'role', 'is_active', 'updated_at']:
+                    setattr(existing, key, getattr(model, key))
+            else:
+                session.add(model)
+            await session.commit()
+
+    async def get_user(self, id: str) -> Optional[User]:
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            result = await session.execute(select(UserModel).where(UserModel.id == id))
+            row = result.scalar_one_or_none()
+            return self._to_user(row) if row else None
+
+    async def get_user_by_username(self, username: str) -> Optional[User]:
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            result = await session.execute(select(UserModel).where(UserModel.username == username))
+            row = result.scalar_one_or_none()
+            return self._to_user(row) if row else None
+
+    async def get_user_by_email(self, email: str) -> Optional[User]:
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            result = await session.execute(select(UserModel).where(UserModel.email == email))
+            row = result.scalar_one_or_none()
+            return self._to_user(row) if row else None
+
+    async def delete_user(self, id: str) -> None:
+        async with self.async_session() as session:
+            from sqlalchemy import delete
+            await session.execute(delete(UserModel).where(UserModel.id == id))
+            await session.commit()
