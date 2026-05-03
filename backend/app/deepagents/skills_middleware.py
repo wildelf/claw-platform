@@ -230,16 +230,45 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
 
             # Rewrite the file path to point to the actual workspace location
             # This handles cases where AI has stale paths in context
-            if tool_name == "read_file" and self._backend is not None:
-                new_path = self._resolve_skill_file_path(file_path, skill_id)
-                if new_path and new_path != file_path:
-                    logger.info(f"Rewriting skill file path: {file_path} -> {new_path}")
-                    tool_input["file_path"] = new_path
-                    tool_call["input"] = tool_input
+            if tool_name == "read_file":
+                backend = self._get_backend_for_tool_call(request)
+                if backend is not None:
+                    new_path = self._resolve_skill_file_path_with_backend(file_path, skill_id, backend)
+                    if new_path and new_path != file_path:
+                        logger.info(f"Rewriting skill file path: {file_path} -> {new_path}")
+                        tool_input["file_path"] = new_path
+                        tool_call["input"] = tool_input
+                    else:
+                        logger.info(f"_resolve_skill_file_path returned None or same path, file_path={file_path}, skill_id={skill_id}, new_path={new_path}")
+                else:
+                    logger.warning("awrap_tool_call: no backend available for path resolution")
 
         return await handler(request)
 
-    def _resolve_skill_file_path(self, file_path: str, skill_id: str | None) -> str | None:
+    def _get_backend_for_tool_call(self, request: ToolCallRequest) -> "BackendProtocol | None":
+        """Get the backend for a tool call request."""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # First try self._backend directly
+        if self._backend is not None:
+            if callable(self._backend):
+                logger.warning("_get_backend_for_tool_call: self._backend is callable, need runtime context")
+                # Try to get from request.runtime if available
+                if request.runtime:
+                    try:
+                        backend = self._get_backend(None, request.runtime, None)
+                        logger.info(f"_get_backend_for_tool_call: resolved callable backend via runtime")
+                        return backend
+                    except Exception as e:
+                        logger.warning(f"_get_backend_for_tool_call: failed to resolve callable backend: {e}")
+                return None
+            return self._backend
+
+        logger.warning("_get_backend_for_tool_call: self._backend is None")
+        return None
+
+    def _resolve_skill_file_path_with_backend(self, file_path: str, skill_id: str | None, backend: "BackendProtocol") -> str | None:
         """Resolve a skill file path to the actual workspace path.
 
         Handles cases where the AI has stale paths in its context that don't
@@ -248,25 +277,30 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
         import logging
         logger = logging.getLogger(__name__)
 
-        if not self._backend:
+        if not backend:
+            logger.warning("_resolve_skill_file_path_with_backend: backend is None")
             return None
 
         filename = file_path.split("/")[-1] if "/" in file_path else file_path
+        logger.info(f"_resolve_skill_file_path_with_backend: file_path={file_path}, skill_id={skill_id}")
 
         # Try to find the actual skill directory by listing
         try:
-            ls_result = self._backend.ls("/skills/")
+            ls_result = backend.ls("/skills/")
+            logger.info(f"_resolve_skill_file_path_with_backend: ls result = {ls_result}")
             if ls_result.error or not ls_result.entries:
+                logger.info("_resolve_skill_file_path_with_backend: ls returned no entries")
                 return None
 
             for entry in ls_result.entries:
                 if not entry.get("is_dir"):
                     continue
                 entry_path = entry.get("path", "")
+                logger.info(f"_resolve_skill_file_path_with_backend: checking entry_path={entry_path}")
 
                 # Check if this is the skill we're looking for by ID
                 if skill_id and skill_id in entry_path:
-                    logger.info(f"_resolve_skill_file_path: matched by skill_id {skill_id} -> {entry_path}")
+                    logger.info(f"_resolve_skill_file_path_with_backend: matched by skill_id {skill_id} -> {entry_path}")
                     return f"{entry_path}/{filename}"
 
             # No direct ID match - try to find any valid skill directory
@@ -279,27 +313,23 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
                 # Try to read SKILL.md from this directory
                 skill_md_path = f"{entry_path}/SKILL.md"
                 try:
-                    read_result = self._backend.read(skill_md_path)
+                    read_result = backend.read(skill_md_path)
                     if read_result.file_data is None or read_result.error:
                         continue
 
                     content = read_result.file_data.get("content", "")
 
                     # Check if this skill's name matches what the AI is looking for
-                    # skill_id from _is_skill_file_access extracts the path component
-                    # which could be "daily-ai-news" from "/skills/daily-ai-news/SKILL.md"
                     if skill_id:
-                        # Check if skill_id appears in the content (as name or slug)
                         if skill_id.lower() in content.lower():
-                            logger.info(f"_resolve_skill_file_path: matched by slug '{skill_id}' in content")
+                            logger.info(f"_resolve_skill_file_path_with_backend: matched by slug '{skill_id}' in content")
                             return f"{entry_path}/{filename}"
 
                     # For single-skill execution, just return the first valid skill
-                    # This handles cases where AI uses wrong path but there's only one skill
-                    logger.info(f"_resolve_skill_file_path: using first available skill at {entry_path}")
+                    logger.info(f"_resolve_skill_file_path_with_backend: using first available skill at {entry_path}")
                     return f"{entry_path}/{filename}"
                 except Exception as e:
-                    logger.warning(f"_resolve_skill_file_path: error reading {skill_md_path}: {e}")
+                    logger.warning(f"_resolve_skill_file_path_with_backend: error reading {skill_md_path}: {e}")
                     continue
 
         except Exception as e:
