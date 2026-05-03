@@ -214,9 +214,11 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
         tool_input = tool_call.get("input", {})
         file_path = tool_input.get("file_path", "")
 
-        logger.info(f"awrap_tool_call: tool={tool_name}, file_path={file_path}")
+        logger.info(f"awrap_tool_call: tool={tool_name}, file_path={file_path}, has_runtime={request.runtime is not None}")
 
         is_skill, skill_id = self._is_skill_file_access(tool_name, tool_input)
+        logger.info(f"awrap_tool_call: is_skill={is_skill}, skill_id={skill_id}")
+
         if is_skill and request.runtime:
             logger.info(f"awrap_tool_call: detected skill access, skill_id={skill_id}")
             self._emit_event(
@@ -231,7 +233,9 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
             # Rewrite the file path to point to the actual workspace location
             # This handles cases where AI has stale paths in context
             if tool_name == "read_file":
+                logger.info(f"awrap_tool_call: attempting to get backend")
                 backend = self._get_backend_for_tool_call(request)
+                logger.info(f"awrap_tool_call: backend = {backend}")
                 if backend is not None:
                     new_path = self._resolve_skill_file_path_with_backend(file_path, skill_id, backend)
                     if new_path and new_path != file_path:
@@ -284,12 +288,29 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
         filename = file_path.split("/")[-1] if "/" in file_path else file_path
         logger.info(f"_resolve_skill_file_path_with_backend: file_path={file_path}, skill_id={skill_id}")
 
-        # Try to find the actual skill directory by listing
+        # Try to find the actual skill directory by listing /skills/
         try:
             ls_result = backend.ls("/skills/")
             logger.info(f"_resolve_skill_file_path_with_backend: ls result = {ls_result}")
-            if ls_result.error or not ls_result.entries:
+            if ls_result.error:
+                logger.warning(f"_resolve_skill_file_path_with_backend: ls error = {ls_result.error}")
+            if not ls_result.entries:
                 logger.info("_resolve_skill_file_path_with_backend: ls returned no entries")
+                # Try to find any skill directory by globbing
+                try:
+                    glob_result = backend.glob("/skills/*/")
+                    logger.info(f"_resolve_skill_file_path_with_backend: glob result = {glob_result}")
+                    if glob_result.matches:
+                        for match in glob_result.matches:
+                            if match.get("is_dir"):
+                                entry_path = match.get("path", "")
+                                skill_md_path = f"{entry_path}/{filename}"
+                                read_result = backend.read(skill_md_path)
+                                if read_result.file_data and not read_result.error:
+                                    logger.info(f"_resolve_skill_file_path_with_backend: found valid skill at {entry_path}")
+                                    return skill_md_path
+                except Exception as e:
+                    logger.warning(f"_resolve_skill_file_path_with_backend: glob error: {e}")
                 return None
 
             for entry in ls_result.entries:
@@ -311,7 +332,7 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
                 entry_path = entry.get("path", "")
 
                 # Try to read SKILL.md from this directory
-                skill_md_path = f"{entry_path}/SKILL.md"
+                skill_md_path = f"{entry_path}/{filename}"
                 try:
                     read_result = backend.read(skill_md_path)
                     if read_result.file_data is None or read_result.error:
@@ -323,11 +344,11 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
                     if skill_id:
                         if skill_id.lower() in content.lower():
                             logger.info(f"_resolve_skill_file_path_with_backend: matched by slug '{skill_id}' in content")
-                            return f"{entry_path}/{filename}"
+                            return skill_md_path
 
                     # For single-skill execution, just return the first valid skill
                     logger.info(f"_resolve_skill_file_path_with_backend: using first available skill at {entry_path}")
-                    return f"{entry_path}/{filename}"
+                    return skill_md_path
                 except Exception as e:
                     logger.warning(f"_resolve_skill_file_path_with_backend: error reading {skill_md_path}: {e}")
                     continue
