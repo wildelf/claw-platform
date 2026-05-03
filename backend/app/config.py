@@ -61,12 +61,17 @@ class EvolutionConfig(BaseModel):
     max_versions: int = 10
 
 
+class SkillCreatorConfig(BaseModel):
+    path: str = ""
+
+
 class Settings(BaseSettings):
     app: AppConfig = AppConfig()
     storage: StorageConfig = StorageConfig()
     auth: AuthConfig
     models: ModelsConfig
     evolution: EvolutionConfig = EvolutionConfig()
+    skill_creator: SkillCreatorConfig = SkillCreatorConfig()
 
     @classmethod
     def from_yaml(cls, path: Path | str) -> "Settings":

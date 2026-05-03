@@ -7,6 +7,7 @@ from fastapi.responses import Response
 
 from app.api.deps import Storage, UserId
 from app.application.skill_service import SkillService
+from app.config import settings
 from app.domain.skill import Skill
 from pydantic import BaseModel, Field
 
@@ -278,8 +279,7 @@ async def execute_skill(
     )
 
 
-# Path to the skill-creator skill
-SKILL_CREATOR_PATH = "/Users/wilde/Downloads/skills-main/skills/skill-creator"
+SKILL_CREATOR_PATH = settings.skill_creator.path
 SKILL_CREATOR_SKILL_PATH = f"{SKILL_CREATOR_PATH}/SKILL.md"
 
 # Read the skill-creator SKILL.md content at module load time
