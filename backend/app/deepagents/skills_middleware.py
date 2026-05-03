@@ -251,6 +251,8 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
         if not self._backend:
             return None
 
+        filename = file_path.split("/")[-1] if "/" in file_path else file_path
+
         # Try to find the actual skill directory by listing
         try:
             ls_result = self._backend.ls("/skills/")
@@ -261,11 +263,45 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
                 if not entry.get("is_dir"):
                     continue
                 entry_path = entry.get("path", "")
-                # Check if this is the skill we're looking for
+
+                # Check if this is the skill we're looking for by ID
                 if skill_id and skill_id in entry_path:
-                    # Found the skill dir, construct the file path
-                    filename = file_path.split("/")[-1] if "/" in file_path else file_path
+                    logger.info(f"_resolve_skill_file_path: matched by skill_id {skill_id} -> {entry_path}")
                     return f"{entry_path}/{filename}"
+
+            # No direct ID match - try to find any valid skill directory
+            # and use it (for single-skill execution, there's only one skill anyway)
+            for entry in ls_result.entries:
+                if not entry.get("is_dir"):
+                    continue
+                entry_path = entry.get("path", "")
+
+                # Try to read SKILL.md from this directory
+                skill_md_path = f"{entry_path}/SKILL.md"
+                try:
+                    read_result = self._backend.read(skill_md_path)
+                    if read_result.file_data is None or read_result.error:
+                        continue
+
+                    content = read_result.file_data.get("content", "")
+
+                    # Check if this skill's name matches what the AI is looking for
+                    # skill_id from _is_skill_file_access extracts the path component
+                    # which could be "daily-ai-news" from "/skills/daily-ai-news/SKILL.md"
+                    if skill_id:
+                        # Check if skill_id appears in the content (as name or slug)
+                        if skill_id.lower() in content.lower():
+                            logger.info(f"_resolve_skill_file_path: matched by slug '{skill_id}' in content")
+                            return f"{entry_path}/{filename}"
+
+                    # For single-skill execution, just return the first valid skill
+                    # This handles cases where AI uses wrong path but there's only one skill
+                    logger.info(f"_resolve_skill_file_path: using first available skill at {entry_path}")
+                    return f"{entry_path}/{filename}"
+                except Exception as e:
+                    logger.warning(f"_resolve_skill_file_path: error reading {skill_md_path}: {e}")
+                    continue
+
         except Exception as e:
             logger.warning(f"Error resolving skill file path: {e}")
 
