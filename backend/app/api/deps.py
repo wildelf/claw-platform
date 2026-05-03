@@ -2,7 +2,8 @@
 
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -37,14 +38,60 @@ async def get_skill_service(storage: Storage) -> SkillService:
 SkillServiceDep = Annotated[SkillService, Depends(get_skill_service)]
 
 
-async def get_current_user_id() -> EntityId:
-    """Get current user ID from auth context.
+security = HTTPBearer()
 
-    TODO: Implement actual auth (JWT/OAuth2).
-    For now, returns a default user ID for development.
+
+class AuthContext:
+    """Auth context containing the current user."""
+    def __init__(self, user_id: EntityId, username: str, role: str):
+        self.user_id = user_id
+        self.username = username
+        self.role = role
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> AuthContext:
+    """Extract and validate JWT token, returning auth context.
+
+    Depends on HTTPBearer to extract the token from Authorization header.
     """
-    # TODO: Extract from JWT token
-    return EntityId("dev-user-id")
+    from app.application.auth_service import AuthService
+
+    token = credentials.credentials
+    auth_service = AuthService()
+    payload = auth_service.verify_token(token)
+
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user_id = payload.get("sub")
+    username = payload.get("username")
+    role = payload.get("role")
+
+    if not user_id or not username:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return AuthContext(
+        user_id=EntityId(user_id),
+        username=username,
+        role=role,
+    )
 
 
-UserId = Annotated[EntityId, Depends(get_current_user_id)]
+async def get_current_user_id_from_auth(
+    auth: AuthContext = Depends(get_current_user),
+) -> EntityId:
+    """Get current user ID from auth context."""
+    return auth.user_id
+
+
+UserId = Annotated[EntityId, Depends(get_current_user_id_from_auth)]
