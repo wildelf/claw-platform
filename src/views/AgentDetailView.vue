@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, nextTick } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
@@ -33,34 +33,34 @@ const videoModelName = computed(() => {
   return m ? `${m.name} (${m.model})` : 'None'
 })
 
-const running = ref(false)
+const running = computed(() => isLoading.value)
 const stopping = ref(false)
 const taskInput = ref('')
-const outputRef = ref<HTMLDivElement | null>(null)
-const outputHtml = ref('<span class="text-gray-400">Waiting for response...</span>')
 const currentXhr = ref<XMLHttpRequest | null>(null)
 
 // Deduplication for events
 const seenEvents = new Set<string>()
 
-// Event state
-const currentEvent = ref<{
-  type: string
-  skillName?: string
-  skillId?: string
-  toolName?: string
-} | null>(null)
-const events = ref<Array<{
-  type: string
-  content?: string
-  skillName?: string
-  toolName?: string
-  url?: string
-  alt?: string
+// Message for chat-like UI
+interface Message {
+  id: string
+  role: 'user' | 'agent' | 'system'
+  content: string
   timestamp: Date
-}>>([])
-const thinkingExpanded = ref(false)
-const thinkingContent = ref('')
+  events?: Array<{
+    type: string
+    content?: string
+    skillName?: string
+    toolName?: string
+    url?: string
+    alt?: string
+  }>
+  thinking?: string
+  isComplete?: boolean
+}
+
+const messages = ref<Message[]>([])
+const isLoading = ref(false)
 
 onMounted(async () => {
   await agentsStore.fetchAgent(agentId.value)
@@ -108,38 +108,33 @@ function getEventLabel(type: string): string {
   }
 }
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/\n/g, '<br>')
-}
-
-function appendOutput(html: string) {
-  outputHtml.value += html
-  nextTick(() => {
-    if (outputRef.value) {
-      outputRef.value.scrollTop = outputRef.value.scrollHeight
-    }
-  })
-}
-
 function clearOutput() {
-  outputHtml.value = ''
-  events.value = []
-  thinkingContent.value = ''
-  currentEvent.value = null
+  messages.value = []
   seenEvents.clear()
 }
 
 function handleRun() {
-  if (!taskInput.value.trim()) return
-  running.value = true
+  if (!taskInput.value.trim() || isLoading.value) return
+  isLoading.value = true
   stopping.value = false
-  clearOutput()
+
+  const userMessage: Message = {
+    id: `user-${Date.now()}`,
+    role: 'user',
+    content: taskInput.value,
+    timestamp: new Date()
+  }
+  messages.value.push(userMessage)
+
+  const agentMessage: Message = {
+    id: `agent-${Date.now()}`,
+    role: 'agent',
+    content: '',
+    timestamp: new Date(),
+    events: [],
+    thinking: ''
+  }
+  messages.value.push(agentMessage)
 
   const xhr = new XMLHttpRequest()
   currentXhr.value = xhr
@@ -156,14 +151,13 @@ function handleRun() {
       if (line.startsWith('data: ')) {
         try {
           const data = JSON.parse(line.slice(6))
-          handleEvent(data)
+          handleEvent(data, agentMessage)
         } catch {}
       }
     }
   }
 
   xhr.onload = () => {
-    // Process any remaining data after lastIndex
     const remaining = xhr.responseText.substring(lastIndex)
     lastIndex = xhr.responseText.length
 
@@ -172,37 +166,32 @@ function handleRun() {
       if (line.startsWith('data: ')) {
         try {
           const data = JSON.parse(line.slice(6))
-          handleEvent(data)
+          handleEvent(data, agentMessage)
         } catch {}
       }
     }
 
     if (xhr.status >= 400) {
-      appendOutput(`\nError: HTTP ${xhr.status}`)
-      events.value.push({
-        type: 'error',
-        content: `HTTP ${xhr.status}`,
-        timestamp: new Date()
-      })
+      agentMessage.content += `\nError: HTTP ${xhr.status}`
+      agentMessage.events?.push({ type: 'error', content: `HTTP ${xhr.status}` })
     }
-    running.value = false
+    agentMessage.isComplete = true
+    isLoading.value = false
     stopping.value = false
     currentXhr.value = null
   }
 
   xhr.onerror = () => {
-    appendOutput(`\nError: Network error`)
-    events.value.push({
-      type: 'error',
-      content: 'Network error',
-      timestamp: new Date()
-    })
-    running.value = false
+    agentMessage.content += `\nError: Network error`
+    agentMessage.events?.push({ type: 'error', content: 'Network error' })
+    agentMessage.isComplete = true
+    isLoading.value = false
     stopping.value = false
     currentXhr.value = null
   }
 
   xhr.send(JSON.stringify({ task: taskInput.value }))
+  taskInput.value = ''
 }
 
 async function stopAgent() {
@@ -224,51 +213,28 @@ async function stopAgent() {
   }
 }
 
-function handleEvent(data: any) {
-  // Create deduplication key based on event type and relevant fields
+function handleEvent(data: any, agentMessage: Message) {
   const eventKey = data.type + (data.content ? data.content.substring(0, 100) : '') + (data.tool || '') + (data.skill_name || '')
   if (seenEvents.has(eventKey) && data.type === 'content') {
     return
   }
   seenEvents.add(eventKey)
 
-  const event = {
-    type: data.type || 'unknown',
-    timestamp: new Date()
-  }
-
   switch (data.type) {
     case 'start':
-      events.value.push({ ...event, content: `开始执行任务: ${data.task}` })
-      break
-
-    case 'preparing':
-      currentEvent.value = { type: 'preparing' }
-      events.value.push({ ...event, content: data.message || '准备中...' })
+      agentMessage.events?.push({ type: 'start', content: `开始执行任务: ${data.task}` })
       break
 
     case 'skill_loading':
-      currentEvent.value = { type: 'skill_loading', skillName: data.skill_name, skillId: data.skill_id }
-      events.value.push({
-        ...event,
-        type: 'skill_loading',
-        skillName: data.skill_name
-      })
+      agentMessage.events?.push({ type: 'skill_loading', skillName: data.skill_name })
       break
 
     case 'skill_loaded':
-      currentEvent.value = null
-      events.value.push({
-        ...event,
-        type: 'skill_loaded',
-        skillName: data.skill_name
-      })
+      agentMessage.events?.push({ type: 'skill_loaded', skillName: data.skill_name })
       break
 
     case 'skill_reading':
-      currentEvent.value = { type: 'skill_reading', skillName: data.skill_id }
-      events.value.push({
-        ...event,
+      agentMessage.events?.push({
         type: 'skill_reading',
         skillName: data.skill_id,
         content: `读取 Skill 文件: ${data.file}`
@@ -276,44 +242,33 @@ function handleEvent(data: any) {
       break
 
     case 'tool_call':
-      currentEvent.value = { type: 'tool_call', toolName: data.tool }
-      events.value.push({
-        ...event,
-        type: 'tool_call',
-        toolName: data.tool
-      })
+      agentMessage.events?.push({ type: 'tool_call', toolName: data.tool })
       break
 
     case 'thinking':
-      thinkingContent.value += data.content || ''
+      agentMessage.thinking = (agentMessage.thinking || '') + (data.content || '')
       break
 
     case 'content':
-      currentEvent.value = null
       let content = data.content || ''
-      // Remove AI thinking tags
       content = content.replace(/<think>[\s\S]*?<\/think>/gi, '')
       if (content.trim()) {
-        appendOutput(escapeHtml(content))
+        agentMessage.content += content
       }
       break
 
     case 'done':
-      currentEvent.value = null
-      appendOutput(`<span class="text-gray-400">--- 完成 ---</span>\n`)
-      events.value.push({ ...event, content: '任务完成' })
+      agentMessage.events?.push({ type: 'done', content: '任务完成' })
       break
 
     case 'error':
-      currentEvent.value = null
-      appendOutput(`<span class="text-red-600">Error: ${escapeHtml(data.error)}</span>\n`)
-      events.value.push({ ...event, content: (data.error || '').substring(0, 100) + ((data.error || '').length > 100 ? '...' : '') })
+      agentMessage.content += `\nError: ${data.error || 'Unknown error'}`
+      agentMessage.events?.push({ type: 'error', content: (data.error || '').substring(0, 100) + ((data.error || '').length > 100 ? '...' : '') })
       break
 
     case 'image':
-      currentEvent.value = null
-      appendOutput(`<div class="my-2"><img src="${data.url}" alt="${escapeHtml(data.alt || 'Generated image')}" class="max-w-md rounded-lg shadow" /></div>`)
-      events.value.push({ ...event, type: 'image', url: data.url, alt: data.alt })
+      agentMessage.content += `\n[图片: ${data.alt || 'Generated image'}](${data.url})`
+      agentMessage.events?.push({ type: 'image', url: data.url, alt: data.alt })
       break
   }
 }
@@ -382,89 +337,95 @@ function handleEdit() {
       </Card>
 
       <!-- Run Agent Panel -->
-      <Card>
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Run Agent</h3>
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Task</label>
-            <textarea
-              v-model="taskInput"
-              class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
-              rows="3"
-              placeholder="Enter task description..."
-              :disabled="running"
-            />
-          </div>
-          <div class="flex gap-2">
-            <Button @click="handleRun" :loading="running" :disabled="!taskInput.trim() || stopping">
-              Execute
-            </Button>
-            <Button v-if="running" variant="danger" :loading="stopping" @click="stopAgent">
-              Stop
+      <Card :padding="false">
+        <div class="flex flex-col" style="height: 500px;">
+          <!-- Header -->
+          <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+            <h3 class="text-lg font-medium text-gray-900">对话</h3>
+            <Button v-if="messages.length > 0" variant="ghost" size="sm" @click="clearOutput">
+              清空对话
             </Button>
           </div>
 
-          <!-- Status Bar -->
-          <div v-if="running || events.length > 0" class="bg-gray-50 rounded-lg p-3">
-            <div class="flex items-center gap-2 mb-2">
-              <span v-if="running" class="animate-pulse text-sm text-gray-500">执行中...</span>
-              <span v-else class="text-sm text-green-600">已完成</span>
+          <!-- Messages Area -->
+          <div class="flex-1 overflow-y-auto p-4 space-y-4">
+            <div v-if="messages.length === 0" class="text-center text-gray-400 py-8">
+              输入任务开始对话
             </div>
 
-            <!-- Current Event -->
-            <div v-if="currentEvent" class="flex items-center gap-2 text-sm">
-              <span v-if="currentEvent.type === 'skill_loading'" class="flex items-center gap-1 text-blue-600">
-                <span>📦</span>
-                <span>加载 Skill: {{ currentEvent.skillName }}</span>
-              </span>
-              <span v-else-if="currentEvent.type === 'tool_call'" class="flex items-center gap-1 text-purple-600">
-                <span>🔧</span>
-                <span>调用工具: {{ currentEvent.toolName }}</span>
-              </span>
-            </div>
-
-            <!-- Event Timeline (Collapsed) -->
-            <details v-if="events.length > 0" class="mt-2">
-              <summary class="text-sm text-gray-500 cursor-pointer hover:text-gray-700">
-                查看事件日志 ({{ events.length }})
-              </summary>
-              <div class="mt-2 space-y-1 text-xs max-h-32 overflow-y-auto">
-                <div
-                  v-for="(evt, idx) in events"
-                  :key="idx"
-                  class="flex items-start gap-2 py-1"
-                >
-                  <span>{{ getEventIcon(evt.type) }}</span>
-                  <span class="text-gray-600">{{ getEventLabel(evt.type) }}</span>
-                  <span v-if="evt.skillName" class="text-blue-600">{{ evt.skillName }}</span>
-                  <span v-else-if="evt.toolName" class="text-purple-600">{{ evt.toolName }}</span>
-                  <span v-else-if="evt.content" class="text-gray-500 truncate flex-1">
-                    {{ evt.content.substring(0, 50) }}{{ evt.content.length > 50 ? '...' : '' }}
-                  </span>
+            <div v-for="msg in messages" :key="msg.id">
+              <!-- User Message -->
+              <div v-if="msg.role === 'user'" class="flex gap-3">
+                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium shrink-0">
+                  {{ msg.content.charAt(0).toUpperCase() }}
+                </div>
+                <div class="flex-1">
+                  <div class="text-sm font-medium text-gray-900">{{ agent?.name || 'User' }}</div>
+                  <div class="mt-1 text-gray-700 bg-gray-100 rounded-lg px-4 py-2">
+                    {{ msg.content }}
+                  </div>
                 </div>
               </div>
-            </details>
+
+              <!-- Agent Message -->
+              <div v-else class="flex gap-3">
+                <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white text-sm font-medium shrink-0">
+                  AI
+                </div>
+                <div class="flex-1">
+                  <div class="text-sm font-medium text-gray-900">Agent</div>
+
+                  <!-- Events -->
+                  <div v-if="msg.events && msg.events.length > 0" class="mt-2 space-y-1">
+                    <div v-for="(evt, idx) in msg.events" :key="idx" class="flex items-center gap-2 text-xs">
+                      <span>{{ getEventIcon(evt.type) }}</span>
+                      <span class="text-gray-600">{{ getEventLabel(evt.type) }}</span>
+                      <span v-if="evt.skillName" class="text-blue-600">{{ evt.skillName }}</span>
+                      <span v-else-if="evt.toolName" class="text-purple-600">{{ evt.toolName }}</span>
+                      <span v-else-if="evt.url" class="text-green-600">
+                        <a :href="evt.url" target="_blank" class="underline">{{ evt.alt || '查看图片' }}</a>
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Thinking -->
+                  <div v-if="msg.thinking" class="mt-2 text-xs text-gray-400 italic">
+                    🤔 {{ msg.thinking.length > 100 ? msg.thinking.substring(0, 100) + '...' : msg.thinking }}
+                  </div>
+
+                  <!-- Content -->
+                  <div class="mt-2 text-gray-700 whitespace-pre-wrap">{{ msg.content || (msg.isComplete ? '' : '思考中...') }}</div>
+
+                  <!-- Loading indicator -->
+                  <div v-if="!msg.isComplete && !msg.content && !msg.thinking" class="mt-1 flex items-center gap-2 text-xs text-gray-400">
+                    <span class="animate-pulse">●</span>
+                    <span>处理中</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <!-- Thinking Section (Collapsible) -->
-          <div v-if="thinkingContent" class="border border-gray-200 rounded-lg">
-            <button
-              @click="thinkingExpanded = !thinkingExpanded"
-              class="w-full px-4 py-2 flex items-center justify-between text-sm text-gray-600 hover:bg-gray-50"
-            >
-              <span>🤔 思考过程</span>
-              <span>{{ thinkingExpanded ? '收起' : '展开' }}</span>
-            </button>
-            <pre
-              v-if="thinkingExpanded"
-              class="px-4 py-2 text-xs text-gray-500 bg-gray-50 overflow-x-auto max-h-48"
-            >{{ thinkingContent }}</pre>
-          </div>
-
-          <!-- Output -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Output</label>
-            <div ref="outputRef" v-html="outputHtml" class="bg-gray-100 p-4 rounded text-sm overflow-x-auto max-h-96 whitespace-pre-wrap"></div>
+          <!-- Input Area -->
+          <div class="p-4 border-t border-gray-200">
+            <div class="flex gap-2">
+              <textarea
+                v-model="taskInput"
+                @keydown.enter.exact.prevent="handleRun"
+                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                rows="2"
+                placeholder="输入任务，按 Enter 发送..."
+                :disabled="isLoading"
+              />
+              <div class="flex flex-col gap-2">
+                <Button @click="handleRun" :loading="isLoading" :disabled="!taskInput.trim()">
+                  发送
+                </Button>
+                <Button v-if="isLoading" variant="danger" :loading="stopping" @click="stopAgent">
+                  停止
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </Card>
