@@ -123,8 +123,13 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
         if "skills_metadata" in state:
             return None
 
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"abefore_agent: sources = {self.sources}")
+
         # Emit skill_loading event for each source
         for source_path in self.sources:
+            logger.info(f"abefore_agent: emitting skill_loading for source={source_path}")
             self._emit_event(
                 runtime,
                 {
@@ -201,19 +206,67 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
         handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command]],
     ) -> ToolMessage | Command:
         """Intercept tool calls to emit skill_reading events (async)."""
+        import logging
+        logger = logging.getLogger(__name__)
+
         tool_call = request.tool_call
         tool_name = tool_call.get("name", "")
         tool_input = tool_call.get("input", {})
+        file_path = tool_input.get("file_path", "")
+
+        logger.info(f"awrap_tool_call: tool={tool_name}, file_path={file_path}")
 
         is_skill, skill_id = self._is_skill_file_access(tool_name, tool_input)
         if is_skill and request.runtime:
+            logger.info(f"awrap_tool_call: detected skill access, skill_id={skill_id}")
             self._emit_event(
                 request.runtime,
                 {
                     "type": "skill_reading",
                     "skill_id": skill_id,
-                    "file": tool_input.get("file_path", ""),
+                    "file": file_path,
                 },
             )
 
+            # Rewrite the file path to point to the actual workspace location
+            # This handles cases where AI has stale paths in context
+            if tool_name == "read_file" and self._backend is not None:
+                new_path = self._resolve_skill_file_path(file_path, skill_id)
+                if new_path and new_path != file_path:
+                    logger.info(f"Rewriting skill file path: {file_path} -> {new_path}")
+                    tool_input["file_path"] = new_path
+                    tool_call["input"] = tool_input
+
         return await handler(request)
+
+    def _resolve_skill_file_path(self, file_path: str, skill_id: str | None) -> str | None:
+        """Resolve a skill file path to the actual workspace path.
+
+        Handles cases where the AI has stale paths in its context that don't
+        match the actual workspace structure.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        if not self._backend:
+            return None
+
+        # Try to find the actual skill directory by listing
+        try:
+            ls_result = self._backend.ls("/skills/")
+            if ls_result.error or not ls_result.entries:
+                return None
+
+            for entry in ls_result.entries:
+                if not entry.get("is_dir"):
+                    continue
+                entry_path = entry.get("path", "")
+                # Check if this is the skill we're looking for
+                if skill_id and skill_id in entry_path:
+                    # Found the skill dir, construct the file path
+                    filename = file_path.split("/")[-1] if "/" in file_path else file_path
+                    return f"{entry_path}/{filename}"
+        except Exception as e:
+            logger.warning(f"Error resolving skill file path: {e}")
+
+        return None

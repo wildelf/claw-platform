@@ -572,17 +572,20 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
         skills_dir = workspace_dir / "skills"
         skills_dir.mkdir(parents=True, exist_ok=True)
 
+        logger.info(f"_get_skill_sources: agent.skill_ids = {self.agent.skill_ids}")
         for skill_id in self.agent.skill_ids:
             skill = await self.storage.get_skill(skill_id)
             if not skill:
+                logger.warning(f"_get_skill_sources: skill {skill_id} not found")
                 continue
 
             # Create skill directory: /temp/skills_xxx/skills/{skill_id}/
-            skill_dir = skills_dir / skill_id
+            skill_dir = skills_dir / str(skill_id)
             skill_dir.mkdir(parents=True, exist_ok=True)
 
             # Export all skill files to temp directory
             files = await self.storage.list_skill_files(str(skill_id))
+            logger.info(f"_get_skill_sources: skill {skill_id} ({skill.name}) has files: {files}")
             for filename in files:
                 content = await self.storage.get_skill_file(str(skill_id), filename)
                 if content:
@@ -592,8 +595,10 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
                         file_path.write_bytes(content)
                     else:
                         file_path.write_text(content, encoding="utf-8")
+                    logger.info(f"_get_skill_sources: wrote {file_path}")
 
         # Return the temp/skills directory as the source
+        logger.info(f"_get_skill_sources: returning sources = [{str(skills_dir)}]")
         return [str(skills_dir)]
 
     def _add_filesystem_skill_to_backend(self, backend: StateBackend, skill_path: str):

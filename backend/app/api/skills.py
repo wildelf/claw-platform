@@ -199,13 +199,17 @@ async def execute_skill(
     from app.deepagents.wrapper import DeepAgentsRunner
 
     # Get the skill
+    logger.info(f"execute_skill called with skill_id={skill_id}")
     skill = await storage.get_skill(skill_id)
     if not skill:
+        logger.warning(f"execute_skill: skill {skill_id} not found in storage")
         raise HTTPException(status_code=404, detail="Skill not found")
+    logger.info(f"execute_skill: found skill {skill.name}")
 
     # Get skill files to include in context (for system prompt only, not backstory)
     skill_files = await storage.list_skill_files(skill_id)
     skill_summary = ", ".join(f"'{f}'" for f in skill_files) if skill_files else "SKILL.md"
+    logger.info(f"execute_skill: skill files = {skill_files}")
 
     # Create a minimal agent for running the skill
     agent = Agent(
@@ -227,6 +231,9 @@ async def execute_skill(
         f"Read and follow the SKILL.md file carefully to complete the task. "
         f"The skill description is: {skill.description}"
     )
+
+    logger.info(f"execute_skill: agent.skill_ids = {agent.skill_ids}")
+    logger.info(f"execute_skill: system_prompt = {system_prompt[:200]}...")
 
     runner = DeepAgentsRunner(
         agent,
