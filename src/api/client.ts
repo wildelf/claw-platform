@@ -20,7 +20,11 @@ client.interceptors.response.use(
     if (error.response?.status === 401) {
       const authStore = useAuthStore()
       authStore.logout()
-      window.location.href = '/login'
+      // Only redirect if not already on a public auth page
+      const publicPages = ['/login', '/register']
+      if (!publicPages.includes(window.location.pathname)) {
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }
