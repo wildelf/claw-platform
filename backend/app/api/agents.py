@@ -1,6 +1,8 @@
 """Agent API routes."""
 
+import asyncio
 import json
+import logging
 from typing import List
 
 from fastapi import APIRouter, HTTPException
@@ -11,6 +13,11 @@ from app.api.deps import Storage, UserId
 from app.application.agent_service import AgentService
 from app.domain.agent import Agent
 from app.domain.base import EntityId
+
+logger = logging.getLogger(__name__)
+
+# Global registry of running agent tasks: agent_id -> task
+_running_agents: dict[str, asyncio.Task] = {}
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -159,6 +166,10 @@ async def run_agent(
         raise HTTPException(status_code=400, detail=str(e))
 
     async def stream_events():
+        # Register this task for cancellation by stop_agent
+        task_ref = asyncio.current_task()
+        _running_agents[agent_id] = task_ref
+
         task = request.task
 
         # Determine model name for start event
@@ -191,8 +202,13 @@ async def run_agent(
                         # Skip non-serializable events like Overwrite objects
                         pass
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        except asyncio.CancelledError:
+            yield f"data: {json.dumps({'type': 'cancelled'})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+        finally:
+            _running_agents.pop(agent_id, None)
+            await runner.stop()
 
     return StreamingResponse(
         stream_events(),
@@ -238,6 +254,10 @@ async def run_agent_with_feedback(
         raise HTTPException(status_code=400, detail=str(e))
 
     async def stream_events():
+        # Register this task for cancellation by stop_agent
+        task_ref = asyncio.current_task()
+        _running_agents[agent_id] = task_ref
+
         task = request.task
 
         # Determine model name for start event
@@ -270,8 +290,13 @@ async def run_agent_with_feedback(
                         # Skip non-serializable events like Overwrite objects
                         pass
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        except asyncio.CancelledError:
+            yield f"data: {json.dumps({'type': 'cancelled'})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+        finally:
+            _running_agents.pop(agent_id, None)
+            await runner.stop()
 
     return StreamingResponse(
         stream_events(),
@@ -288,8 +313,14 @@ async def run_agent_with_feedback(
 @router.post("/{agent_id}/stop")
 async def stop_agent(
     agent_id: str,
-    storage: Storage,
 ) -> dict:
-    """Stop running agent."""
-    # TODO: Implement agent stop
-    return {"status": "todo", "message": "Agent stop not yet implemented"}
+    """Stop a running agent task.
+
+    Cancels the running task for the agent and returns immediately.
+    The streaming response will receive a 'cancelled' event.
+    """
+    if agent_id in _running_agents:
+        task = _running_agents[agent_id]
+        task.cancel()
+        return {"status": "stopped", "agent_id": agent_id}
+    return {"status": "not_running", "agent_id": agent_id}
