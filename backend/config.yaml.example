@@ -27,3 +27,6 @@ evolution:
   generation_threshold: 3
   auto_evolve: false
   max_versions: 10
+
+skill_creator:
+  path: "/path/to/skills-main/skills/skill-creator"
