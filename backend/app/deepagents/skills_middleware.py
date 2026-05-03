@@ -207,7 +207,11 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
     ) -> ToolMessage | Command:
         """Intercept tool calls to emit skill_reading events (async)."""
         import logging
+        import traceback
         logger = logging.getLogger(__name__)
+
+        logger.info(f"awrap_tool_call ENTERED: tool={request.tool_call.get('name')}, input={request.tool_call.get('input')}")
+        logger.info(f"awrap_tool_call: self._backend is None? {self._backend is None}, type={type(self._backend).__name__ if self._backend else 'None'}")
 
         tool_call = request.tool_call
         tool_name = tool_call.get("name", "")
@@ -246,8 +250,13 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
                         logger.info(f"_resolve_skill_file_path returned None or same path, file_path={file_path}, skill_id={skill_id}, new_path={new_path}")
                 else:
                     logger.warning("awrap_tool_call: no backend available for path resolution")
+        else:
+            logger.info(f"awrap_tool_call: skipping path rewrite, is_skill={is_skill}, has_runtime={request.runtime is not None}")
 
-        return await handler(request)
+        logger.info(f"awrap_tool_call: calling handler with tool_call={tool_call}")
+        result = await handler(request)
+        logger.info(f"awrap_tool_call: handler returned")
+        return result
 
     def _get_backend_for_tool_call(self, request: ToolCallRequest) -> "BackendProtocol | None":
         """Get the backend for a tool call request."""
