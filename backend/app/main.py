@@ -6,7 +6,7 @@ import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import agents, skills, tools, models, feedback
+from app.api import agents, auth, skills, tools, models, feedback
 from app.config import settings
 
 # Configure logging
@@ -32,6 +32,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(agents.router, prefix="/api")
+app.include_router(auth.router, prefix="/api")
 app.include_router(skills.router, prefix="/api")
 app.include_router(tools.router, prefix="/api")
 app.include_router(models.router, prefix="/api")
