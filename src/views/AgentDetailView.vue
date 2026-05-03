@@ -190,6 +190,14 @@ function handleRun() {
     currentXhr.value = null
   }
 
+  xhr.onabort = () => {
+    agentMessage.events?.push({ type: 'cancelled', content: '任务已取消' })
+    agentMessage.isComplete = true
+    isLoading.value = false
+    stopping.value = false
+    currentXhr.value = null
+  }
+
   xhr.send(JSON.stringify({ task: taskInput.value }))
   taskInput.value = ''
 }
@@ -255,6 +263,10 @@ function handleEvent(data: any, agentMessage: Message) {
       if (content.trim()) {
         agentMessage.content += content
       }
+      break
+
+    case 'cancelled':
+      agentMessage.events?.push({ type: 'cancelled', content: '任务已取消' })
       break
 
     case 'done':
