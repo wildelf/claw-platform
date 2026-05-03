@@ -34,9 +34,11 @@ const videoModelName = computed(() => {
 })
 
 const running = ref(false)
+const stopping = ref(false)
 const taskInput = ref('')
 const outputRef = ref<HTMLDivElement | null>(null)
 const outputHtml = ref('<span class="text-gray-400">Waiting for response...</span>')
+const currentXhr = ref<XMLHttpRequest | null>(null)
 
 // Deduplication for events
 const seenEvents = new Set<string>()
@@ -85,6 +87,7 @@ function getEventIcon(type: string): string {
     case 'thinking': return '🤔'
     case 'done': return '🎉'
     case 'error': return '❌'
+    case 'cancelled': return '🛑'
     default: return '📝'
   }
 }
@@ -100,6 +103,7 @@ function getEventLabel(type: string): string {
     case 'thinking': return '思考中'
     case 'done': return '完成'
     case 'error': return '错误'
+    case 'cancelled': return '已取消'
     default: return type
   }
 }
@@ -134,9 +138,11 @@ function clearOutput() {
 function handleRun() {
   if (!taskInput.value.trim()) return
   running.value = true
+  stopping.value = false
   clearOutput()
 
   const xhr = new XMLHttpRequest()
+  currentXhr.value = xhr
   xhr.open('POST', `/api/agents/${agentId.value}/run`, true)
   xhr.setRequestHeader('Content-Type', 'application/json')
 
@@ -180,6 +186,8 @@ function handleRun() {
       })
     }
     running.value = false
+    stopping.value = false
+    currentXhr.value = null
   }
 
   xhr.onerror = () => {
@@ -190,9 +198,30 @@ function handleRun() {
       timestamp: new Date()
     })
     running.value = false
+    stopping.value = false
+    currentXhr.value = null
   }
 
   xhr.send(JSON.stringify({ task: taskInput.value }))
+}
+
+async function stopAgent() {
+  if (!running.value) return
+  stopping.value = true
+
+  // Abort the current XHR
+  if (currentXhr.value) {
+    currentXhr.value.abort()
+  }
+
+  // Call the stop API
+  try {
+    await fetch(`/api/agents/${agentId.value}/stop`, {
+      method: 'POST',
+    })
+  } catch (e) {
+    // Ignore errors from stop API
+  }
 }
 
 function handleEvent(data: any) {
@@ -366,9 +395,14 @@ function handleEdit() {
               :disabled="running"
             />
           </div>
-          <Button @click="handleRun" :loading="running" :disabled="!taskInput.trim()">
-            Execute
-          </Button>
+          <div class="flex gap-2">
+            <Button @click="handleRun" :loading="running" :disabled="!taskInput.trim() || stopping">
+              Execute
+            </Button>
+            <Button v-if="running" variant="danger" :loading="stopping" @click="stopAgent">
+              Stop
+            </Button>
+          </div>
 
           <!-- Status Bar -->
           <div v-if="running || events.length > 0" class="bg-gray-50 rounded-lg p-3">
