@@ -38,6 +38,9 @@ const taskInput = ref('')
 const outputRef = ref<HTMLDivElement | null>(null)
 const outputHtml = ref('<span class="text-gray-400">Waiting for response...</span>')
 
+// Deduplication for events
+const seenEvents = new Set<string>()
+
 // Event state
 const currentEvent = ref<{
   type: string
@@ -50,6 +53,8 @@ const events = ref<Array<{
   content?: string
   skillName?: string
   toolName?: string
+  url?: string
+  alt?: string
   timestamp: Date
 }>>([])
 const thinkingExpanded = ref(false)
@@ -123,6 +128,7 @@ function clearOutput() {
   events.value = []
   thinkingContent.value = ''
   currentEvent.value = null
+  seenEvents.clear()
 }
 
 function handleRun() {
@@ -134,11 +140,12 @@ function handleRun() {
   xhr.open('POST', `/api/agents/${agentId.value}/run`, true)
   xhr.setRequestHeader('Content-Type', 'application/json')
 
-  let buffer = ''
+  let lastIndex = 0
   xhr.onprogress = () => {
-    buffer += xhr.responseText.substring(buffer.length)
-    const lines = buffer.split('\n')
-    buffer = lines.pop() || ''
+    const newData = xhr.responseText.substring(lastIndex)
+    lastIndex = xhr.responseText.length
+
+    const lines = newData.split('\n')
     for (const line of lines) {
       if (line.startsWith('data: ')) {
         try {
@@ -150,6 +157,20 @@ function handleRun() {
   }
 
   xhr.onload = () => {
+    // Process any remaining data after lastIndex
+    const remaining = xhr.responseText.substring(lastIndex)
+    lastIndex = xhr.responseText.length
+
+    const lines = remaining.split('\n')
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(line.slice(6))
+          handleEvent(data)
+        } catch {}
+      }
+    }
+
     if (xhr.status >= 400) {
       appendOutput(`\nError: HTTP ${xhr.status}`)
       events.value.push({
@@ -175,6 +196,13 @@ function handleRun() {
 }
 
 function handleEvent(data: any) {
+  // Create deduplication key based on event type and relevant fields
+  const eventKey = data.type + (data.content ? data.content.substring(0, 100) : '') + (data.tool || '') + (data.skill_name || '')
+  if (seenEvents.has(eventKey) && data.type === 'content') {
+    return
+  }
+  seenEvents.add(eventKey)
+
   const event = {
     type: data.type || 'unknown',
     timestamp: new Date()

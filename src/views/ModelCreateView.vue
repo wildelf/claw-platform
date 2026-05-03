@@ -51,7 +51,7 @@ async function handleSubmit() {
       model: form.value.model,
       api_key: form.value.api_key || undefined,
       base_url: form.value.base_url || undefined,
-      modality: form.value.modality
+      modality: form.value.modality as 'text' | 'image-to-text' | 'text-to-image' | 'image-to-image' | 'text-to-video' | 'video'
     })
     router.push('/models')
   } catch (e) {

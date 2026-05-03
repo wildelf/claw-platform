@@ -1,7 +1,6 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSkillsStore } from '@/stores/skills'
-import { useModelsStore } from '@/stores/models'
 import { skillsApi } from '@/api/skills'
 import type { SkillConfig } from '@/types'
 
@@ -18,7 +17,6 @@ export interface SkillForm {
 export function useSkillWorkbench() {
   const router = useRouter()
   const skillsStore = useSkillsStore()
-  const modelsStore = useModelsStore()
 
   // Mode
   const mode = ref<Mode>('create')
@@ -194,7 +192,6 @@ export function useSkillWorkbench() {
     xhr.setRequestHeader('Content-Type', 'application/json')
 
     let buffer = ''
-    let currentFile = ''
     const seenEvents = new Set<string>()
 
     xhr.onprogress = () => {

@@ -3,7 +3,6 @@ import { ref, watch, onMounted } from 'vue'
 import Card from '@/components/ui/Card.vue'
 import Input from '@/components/ui/Input.vue'
 import Select from '@/components/ui/Select.vue'
-import Button from '@/components/ui/Button.vue'
 import type { SkillConfig } from '@/types'
 import { useModelsStore } from '@/stores/models'
 

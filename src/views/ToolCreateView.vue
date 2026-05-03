@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
 import Input from '@/components/ui/Input.vue'
-import Select from '@/components/ui/Select.vue'
 import { useToolsStore } from '@/stores/tools'
 
 const router = useRouter()

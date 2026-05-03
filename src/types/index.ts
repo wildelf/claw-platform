@@ -8,6 +8,9 @@ export interface Tool {
   id: string
   name: string
   description: string
+  type?: 'CUSTOM' | 'MCP'
+  config?: Record<string, any>
+  allowed_tools?: string[]
 }
 
 export interface FeedbackEvent {
@@ -29,6 +32,9 @@ export interface Agent {
   skill_ids: string[]
   tool_ids: string[]
   model_config_id: string | null
+  text_model_config_id: string | null
+  image_model_config_id: string | null
+  video_model_config_id: string | null
   status: AgentStatus
   user_id: string
   created_at: string
@@ -99,6 +105,7 @@ export interface ModelConfig {
   name: string
   type: 'openai' | 'anthropic' | 'local' | 'deepseek' | 'other'
   model: string
+  modality?: 'text' | 'image-to-text' | 'text-to-image' | 'image-to-image' | 'text-to-video' | 'video'
   api_key?: string
   base_url?: string
   config: Record<string, any>

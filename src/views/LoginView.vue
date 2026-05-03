@@ -27,7 +27,7 @@ async function handleSubmit() {
     await authStore.login(username.value, password.value)
     router.push('/')
   } catch (e) {
-    error.value = e?.response?.data?.detail || e?.message || 'Login failed'
+    error.value = (e as any)?.response?.data?.detail || (e as any)?.message || 'Login failed'
   } finally {
     loading.value = false
   }

@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
 import Card from '@/components/ui/Card.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import { useAgentsStore } from '@/stores/agents'
 import { useSkillsStore } from '@/stores/skills'
 
-const router = useRouter()
 const agentsStore = useAgentsStore()
 const skillsStore = useSkillsStore()
 

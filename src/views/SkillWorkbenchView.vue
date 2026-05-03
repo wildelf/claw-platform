@@ -1,21 +1,17 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
 import Input from '@/components/ui/Input.vue'
 import Select from '@/components/ui/Select.vue'
 import SkillConfigPanel from '@/components/skills/SkillConfigPanel.vue'
 import SkillDebugPanel from '@/components/skills/SkillDebugPanel.vue'
-import { useModelsStore } from '@/stores/models'
 import { useSkillWorkbench } from '@/composables/useSkillWorkbench'
 
 const route = useRoute()
-const router = useRouter()
-const modelsStore = useModelsStore()
 
 const {
-  mode,
   form,
   localConfig,
   generationProgress,
@@ -43,10 +39,6 @@ const {
 const modificationText = ref('')
 
 onMounted(() => {
-  if (modelsStore.models.length === 0) {
-    modelsStore.fetchModels()
-  }
-
   const id = route.params.id as string
   if (id) {
     initializeForEdit(id)
@@ -221,11 +213,11 @@ function onSelectFile(name: string) {
           :generation-progress="generationProgress"
           :generation-output="generationOutput"
           :test-result="testResult"
-          :can-test="canTest"
+          :can-test="(canTest as boolean)"
           :files="allFiles"
           :selected-file="selectedFile"
           @select-file="onSelectFile"
-          @run-test="handleRunTest"
+          @run-test="(input) => handleRunTest(input)"
           @clear="handleClear"
         />
       </div>

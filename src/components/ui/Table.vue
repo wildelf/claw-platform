@@ -7,10 +7,10 @@ interface Column {
 
 interface Props {
   columns: Column[]
-  data: Record<string, unknown>[]
+  data: any[]
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 </script>
 
 <template>
@@ -29,13 +29,13 @@ defineProps<Props>()
         </tr>
       </thead>
       <tbody class="bg-white divide-y divide-gray-200">
-        <tr v-if="data.length === 0">
+        <tr v-if="props.data.length === 0">
           <td :colspan="columns.length" class="px-4 py-8 text-center text-gray-500">
             No data available
           </td>
         </tr>
         <tr
-          v-for="(row, index) in data"
+          v-for="(row, index) in props.data"
           :key="index"
           class="hover:bg-gray-50"
         >

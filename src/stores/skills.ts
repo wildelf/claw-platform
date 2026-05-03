@@ -115,7 +115,7 @@ export const useSkillsStore = defineStore('skills', () => {
         loading.value = false
       }
     },
-    async testSkill(id: string, input: any): Promise<{output: any; metrics: any}> {
+    async testSkill(_id: string, _input: any): Promise<{output: any; metrics: any}> {
       // Placeholder - implement when backend supports it
       return { output: { result: 'test not implemented' }, metrics: { duration_ms: 0, tokens_used: 0, cache_hit: false } }
     }

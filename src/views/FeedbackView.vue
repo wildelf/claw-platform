@@ -67,7 +67,7 @@ function formatTime(timestamp: number): string {
         <template #cell-timestamp="{ row }">
           {{ formatTime(row.timestamp) }}
         </template>
-        <template #cell-actions="{ row }">
+        <template #cell-actions="{ row: _row }">
           <Button variant="ghost" size="sm">View</Button>
         </template>
       </Table>

@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Table from '@/components/ui/Table.vue'
 import { useToolsStore } from '@/stores/tools'
 
-const router = useRouter()
 const toolsStore = useToolsStore()
 
 const columns = [

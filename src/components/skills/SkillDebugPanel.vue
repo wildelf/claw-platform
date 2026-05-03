@@ -19,13 +19,12 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'select-file': [name: string]
-  'run-test': []
+  'run-test': [input: string]
   'clear': []
 }>()
 
 const testInput = ref('')
 const isRunning = ref(false)
-const activeTab = ref<'output' | 'files'>('output')
 
 const outputLines = computed(() => props.generationOutput.split('\n'))
 const fileNames = computed(() => Object.keys(props.files))
@@ -36,12 +35,12 @@ const selectedFileContent = computed(() => {
   return null
 })
 
-function onTabClick(tab: 'output' | 'files') {
-  activeTab.value = tab
-}
-
 function onFileClick(name: string) {
   emit('select-file', name)
+}
+
+function onRunTest() {
+  emit('run-test', testInput.value)
 }
 </script>
 
@@ -148,7 +147,7 @@ function onFileClick(name: string) {
             variant="primary"
             :disabled="!canTest || !testInput.trim()"
             :loading="isRunning"
-            @click="emit('run-test')"
+            @click="onRunTest"
           >
             Run Test
           </Button>
