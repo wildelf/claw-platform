@@ -56,6 +56,7 @@ interface Message {
     alt?: string
   }>
   thinking?: string
+  thinkingExpanded?: boolean
   isComplete?: boolean
 }
 
@@ -132,7 +133,9 @@ function handleRun() {
     content: '',
     timestamp: new Date(),
     events: [],
-    thinking: ''
+    thinking: '',
+    thinkingExpanded: false,
+    isComplete: false
   }
   messages.value.push(agentMessage)
 
@@ -267,15 +270,18 @@ function handleEvent(data: any, agentMessage: Message) {
 
     case 'cancelled':
       agentMessage.events?.push({ type: 'cancelled', content: '任务已取消' })
+      agentMessage.thinkingExpanded = false
       break
 
     case 'done':
       agentMessage.events?.push({ type: 'done', content: '任务完成' })
+      agentMessage.thinkingExpanded = false
       break
 
     case 'error':
       agentMessage.content += `\nError: ${data.error || 'Unknown error'}`
       agentMessage.events?.push({ type: 'error', content: (data.error || '').substring(0, 100) + ((data.error || '').length > 100 ? '...' : '') })
+      agentMessage.thinkingExpanded = false
       break
 
     case 'image':
@@ -401,8 +407,19 @@ function handleEdit() {
                   </div>
 
                   <!-- Thinking -->
-                  <div v-if="msg.thinking" class="mt-2 text-xs text-gray-400 italic">
-                    🤔 {{ msg.thinking.length > 100 ? msg.thinking.substring(0, 100) + '...' : msg.thinking }}
+                  <div v-if="msg.thinking" class="mt-2">
+                    <button
+                      @click="msg.thinkingExpanded = !msg.thinkingExpanded"
+                      class="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <span>{{ msg.thinkingExpanded ? '▼' : '▶' }}</span>
+                      <span>🤔 思考过程</span>
+                      <span v-if="!msg.thinkingExpanded" class="text-gray-300">({{ msg.thinking.length }} 字)</span>
+                    </button>
+                    <pre
+                      v-if="msg.thinkingExpanded"
+                      class="mt-1 text-xs text-gray-500 bg-gray-50 rounded p-2 whitespace-pre-wrap max-h-40 overflow-y-auto"
+                    >{{ msg.thinking }}</pre>
                   </div>
 
                   <!-- Content -->
