@@ -81,6 +81,7 @@ async def list_scheduled_tasks(
 async def get_scheduled_task(
     task_id: str,
     storage: Storage,
+    user_id: UserId,
 ) -> ScheduledTask:
     """Get scheduled task by ID."""
     from app.application.scheduled_task_service import ScheduledTaskService
@@ -89,6 +90,8 @@ async def get_scheduled_task(
     task = await service.get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Scheduled task not found")
+    if task.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this task")
     return task
 
 
@@ -97,29 +100,37 @@ async def update_scheduled_task(
     task_id: str,
     data: UpdateScheduledTask,
     storage: Storage,
+    user_id: UserId,
 ) -> ScheduledTask:
     """Update scheduled task."""
     from app.application.scheduled_task_service import ScheduledTaskService
 
     service = ScheduledTaskService(storage)
-    task = await service.update(task_id, data.model_dump(exclude_unset=True))
+    task = await service.get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Scheduled task not found")
-    return task
+    if task.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this task")
+    updated = await service.update(task_id, data.model_dump(exclude_unset=True))
+    return updated
 
 
 @router.delete("/{task_id}")
 async def delete_scheduled_task(
     task_id: str,
     storage: Storage,
+    user_id: UserId,
 ) -> dict:
     """Delete scheduled task."""
     from app.application.scheduled_task_service import ScheduledTaskService
 
     service = ScheduledTaskService(storage)
-    deleted = await service.delete(task_id)
-    if not deleted:
+    task = await service.get(task_id)
+    if not task:
         raise HTTPException(status_code=404, detail="Scheduled task not found")
+    if task.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this task")
+    deleted = await service.delete(task_id)
     return {"ok": True}
 
 
@@ -127,6 +138,7 @@ async def delete_scheduled_task(
 async def trigger_scheduled_task(
     task_id: str,
     storage: Storage,
+    user_id: UserId,
 ) -> dict:
     """Immediately trigger a scheduled task."""
     from app.application.scheduled_task_service import ScheduledTaskService
@@ -135,6 +147,8 @@ async def trigger_scheduled_task(
     task = await service.get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Scheduled task not found")
+    if task.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this task")
 
     # Scheduler will be integrated in Task 4 - for now just return success
     return {"status": "triggered", "task_id": task_id}
