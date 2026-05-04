@@ -38,8 +38,10 @@ class TestWebSearchTool:
 
     @pytest.mark.asyncio
     async def test_falls_back_to_duckduckgo_when_no_api_key(self):
-        """Should fall back to DuckDuckGo when no API key is set."""
+        """Should fall back to DuckDuckGo when no API key is set and config also has no key."""
         tool = WebSearchTool(api_key=None)
+        # Force _api_key to None to trigger fallback
+        tool._api_key = None
         with patch.object(tool, '_search_fallback', new_callable=AsyncMock) as mock_ddg:
             mock_ddg.return_value = {"results": [], "answer": None}
             result = await tool._ainvoke({"query": "test"})

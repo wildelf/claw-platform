@@ -47,14 +47,23 @@ class WebSearchTool(BaseTool):
             return {"error": "query is required"}
 
         # Try MiniMax MCP first if configured
-        if self._api_key:
+        if self._api_key and self._api_key != "your-api-key-here":
             result = await self._search_via_mcp(query)
             if result:
                 return result
 
         # Fallback to DuckDuckGo
+        logger.info("Trying DuckDuckGo fallback for query: %s", query)
         result = await self._search_fallback(query)
-        return result
+        if result.get("results"):
+            return result
+
+        # If fallback failed, return error with suggestion
+        return {
+            "error": f"Web search failed. MiniMax MCP not configured or unavailable. Query: {query}",
+            "results": [],
+            "suggestion": "Please configure a valid MiniMax API key in config.yaml to enable web search"
+        }
 
     async def _search_via_mcp(self, query: str) -> dict[str, Any] | None:
         """Search using MiniMax MCP server."""
@@ -78,6 +87,39 @@ class WebSearchTool(BaseTool):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
+
+            # Wait for MCP server to initialize
+            await asyncio.sleep(2.0)
+
+            # Send initialize request
+            init_request = {
+                "jsonrpc": "2.0",
+                "id": 0,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "claw-platform", "version": "1.0.0"}
+                },
+            }
+            process.stdin.write(json.dumps(init_request).encode() + b"\n")
+            await process.stdin.drain()
+
+            # Read initialize response
+            init_response = await asyncio.wait_for(
+                process.stdout.readline(),
+                timeout=10.0
+            )
+            logger.info("MCP init response: %s", init_response.decode()[:200])
+
+            # Send initialized notification
+            initialized_notification = {
+                "jsonrpc": "2.0",
+                "method": "notifications/initialized",
+                "params": {},
+            }
+            process.stdin.write(json.dumps(initialized_notification).encode() + b"\n")
+            await process.stdin.drain()
 
             # Send JSON-RPC request for tools/list
             request_id = 1
@@ -146,6 +188,7 @@ class WebSearchTool(BaseTool):
 
     async def _search_fallback(self, query: str) -> dict[str, Any]:
         """Fallback search using DuckDuckGo HTML."""
+        results = []
         try:
             async with httpx.AsyncClient() as client:
                 url = "https://duckduckgo.com/html/"
@@ -156,27 +199,45 @@ class WebSearchTool(BaseTool):
                     headers={"User-Agent": "Mozilla/5.0"},
                     timeout=15.0,
                 )
+                logger.info("DuckDuckGo response status: %s", response.status_code)
                 response.raise_for_status()
                 html = response.text
+                logger.info("DuckDuckGo HTML length: %d", len(html))
 
-                # Simple HTML parsing to extract titles and snippets
-                results = []
-                # Match search result patterns
-                pattern = r'<a class="result__a" href="([^"]+)">([^<]+)</a>.*?<a class="result__snippet"[^>]*>([^<]+)</a>'
-                matches = re.findall(pattern, html, re.DOTALL)
-                for url, title, snippet in matches[:5]:
-                    results.append({
-                        "title": title.strip(),
-                        "url": url,
-                        "snippet": snippet.strip().replace("<b>", "").replace("</b>", ""),
-                    })
+                # Try multiple patterns to extract results
+                patterns = [
+                    r'<a class="result__a" href="([^"]+)">([^<]+)</a>.*?<a class="result__snippet"[^>]*>([^<]+)</a>',
+                    r'<a href="([^"]+)" class="result__a"[^>]*>([^<]+)</a>',
+                    r'data-src="([^"]+)"[^>]*>[^<]*<div class="result__title">([^<]+)</div>',
+                ]
+                for pattern in patterns:
+                    matches = re.findall(pattern, html, re.DOTALL)
+                    if matches:
+                        for url, title, snippet in matches[:5]:
+                            results.append({
+                                "title": title.strip(),
+                                "url": url,
+                                "snippet": snippet.strip().replace("<b>", "").replace("</b>", "") if snippet else "",
+                            })
+                        break
 
+                logger.info("Parsed %d results from DuckDuckGo", len(results))
                 return {
                     "results": results,
                     "answer": None,
                 }
+        except httpx.ConnectTimeout as e:
+            logger.error("WebSearchTool DuckDuckGo connection timeout: %s", e)
+            return {"error": f"Connection timeout: {e}", "results": []}
+        except httpx.HTTPError as e:
+            status = getattr(e.response, 'status_code', None)
+            if status:
+                logger.error("WebSearchTool fallback HTTP error: %s, status: %s", e, status)
+            else:
+                logger.error("WebSearchTool fallback HTTP error: %s", e)
+            return {"error": f"HTTP error: {e}", "results": []}
         except Exception as e:
-            logger.error("WebSearchTool fallback search failed: %s", e)
+            logger.error("WebSearchTool fallback search failed: %s (%s)", e, type(e).__name__)
             return {"error": f"Web search failed: {e}", "results": []}
 
     def _run(self, tool_input: str | dict[str, Any], **kwargs) -> dict[str, Any]:
