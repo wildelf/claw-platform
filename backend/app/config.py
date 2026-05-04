@@ -73,8 +73,20 @@ class OpenSandboxConfig(BaseModel):
     memory_limit: str = "512Mi"
 
 
+class RedisConfig(BaseModel):
+    host: str = "localhost"
+    port: int = 6379
+    db: int = 0
+    password: str | None = None
+
+
 class WebSearchConfig(BaseModel):
     enabled: bool = False
+    provider: str = "auto"  # auto, minimax, duckduckgo
+    api_key: str | None = None
+    base_url: str = "https://api.minimaxi.com"
+    mcp_command: str = "uvx"
+    mcp_args: list[str] = ["minimax-coding-plan-mcp"]
 
 
 class Settings(BaseSettings):
@@ -85,6 +97,7 @@ class Settings(BaseSettings):
     evolution: EvolutionConfig = EvolutionConfig()
     skill_creator: SkillCreatorConfig = SkillCreatorConfig()
     opensandbox: OpenSandboxConfig = OpenSandboxConfig()
+    redis: RedisConfig = RedisConfig()
     web_search: WebSearchConfig = WebSearchConfig()
 
     @classmethod

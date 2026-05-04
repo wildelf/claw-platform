@@ -117,6 +117,24 @@ class OpenSandboxClient:
         except Exception as e:
             logger.warning(f"Error deleting sandbox {sandbox_id}: {e}")
 
+    async def execute_command(self, sandbox_id: str, command: str, timeout: int = 30) -> dict:
+        """Execute a shell command inside a running sandbox.
+
+        Args:
+            sandbox_id: ID of the running sandbox
+            command: Shell command to execute
+            timeout: Execution timeout in seconds
+
+        Returns:
+            Dict with output, exit_code, and truncated flag
+        """
+        response = await self._client.post(
+            f"{self.base_url}/v1/sandboxes/{sandbox_id}/exec",
+            json={"command": command, "timeout": timeout},
+        )
+        response.raise_for_status()
+        return response.json()
+
     async def write_file(self, sandbox_id: str, path: str, content: bytes) -> None:
         """Write a file to the sandbox."""
         # Use the sandbox proxy endpoint

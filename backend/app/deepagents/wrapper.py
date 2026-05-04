@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 from deepagents import create_deep_agent
 from deepagents.graph import create_deep_agent
+from deepagents.backends.protocol import BackendProtocol
 from deepagents.backends.state import StateBackend
 
 from app.deepagents.skills_middleware import SkillEventMiddleware
@@ -42,12 +43,14 @@ class DeepAgentsRunner:
         self,
         agent: Agent,
         storage: SQLiteStorage,
+        backend: BackendProtocol | None = None,
         extra_skill_paths: list[str] | None = None,
         system_prompt_override: str | None = None,
         override_model_config_id: str | None = None,
     ):
         self.agent = agent
         self.storage = storage
+        self._custom_backend = backend
         self._runner = None
         self._mcp_adapters: dict[str, MCPAdapter] = {}
         self._extra_skill_paths = extra_skill_paths or []
@@ -81,11 +84,17 @@ class DeepAgentsRunner:
         # 5. Build system prompt from agent config
         system_prompt = self._system_prompt_override or self._build_system_prompt()
 
-        # 6. Create backend - single FilesystemBackend with virtual_mode=True for proper path resolution
-        from deepagents.backends.filesystem import FilesystemBackend
+        # 6. Create backend
+        if self._custom_backend is not None:
+            # Use provided custom backend (e.g., OpenSandboxBackend)
+            backend = self._custom_backend
+            workspace_dir = Path(tempfile.mkdtemp(prefix="agent_workspace_"))
+        else:
+            # Default: FilesystemBackend with virtual_mode=True
+            from deepagents.backends.filesystem import FilesystemBackend
 
-        # Use virtual_mode=True so paths like /images/xxx.png resolve to {workspace_dir}/images/xxx.png
-        backend = FilesystemBackend(root_dir=str(workspace_dir), virtual_mode=True)
+            workspace_dir = Path(tempfile.mkdtemp(prefix="agent_workspace_"))
+            backend = FilesystemBackend(root_dir=str(workspace_dir), virtual_mode=True)
 
         # Store for later use
         self._workspace_dir = workspace_dir
@@ -177,14 +186,12 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
 
         # Create runner with resolved model if not yet created
         if not self._runner:
-            self._workspace_dir = Path(tempfile.mkdtemp(prefix="agent_workspace_"))
-            skills_dir = self._workspace_dir / "skills"
-            skills_dir.mkdir(parents=True, exist_ok=True)
-            skill_sources = await self._get_skill_sources(self._workspace_dir)
-            tools = await self._load_tools()
-            system_prompt = self._system_prompt_override or self._build_system_prompt()
-            from deepagents.backends.filesystem import FilesystemBackend
-            backend = FilesystemBackend(root_dir=str(self._workspace_dir), virtual_mode=True)
+            if self._custom_backend is not None:
+                backend = self._custom_backend
+            else:
+                from deepagents.backends.filesystem import FilesystemBackend
+                self._workspace_dir = Path(tempfile.mkdtemp(prefix="agent_workspace_"))
+                backend = FilesystemBackend(root_dir=str(self._workspace_dir), virtual_mode=True)
             skill_middleware = SkillEventMiddleware(
                 backend=backend,
                 sources=skill_sources if skill_sources else [],
@@ -200,7 +207,7 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
             self._backend = backend
             # Store skill sources for re-use in subsequent runs
             self._skill_sources = skill_sources
-        elif self._workspace_dir:
+        elif self._workspace_dir and self._custom_backend is None:
             # Re-create runner with different model (different model instance)
             skill_sources = getattr(self, '_skill_sources', None) or []
             from deepagents.backends.filesystem import FilesystemBackend
@@ -478,15 +485,26 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
         """Load tools from storage."""
         tools = []
 
-        # Add OpenSandbox script execution tool if enabled
+        # Add OpenSandbox script execution tool if enabled in agent or globally
         if getattr(settings, 'opensandbox', None) and settings.opensandbox.enabled:
             script_tool = ScriptExecutionTool(opensandbox_url=settings.opensandbox.base_url)
             tools.append(script_tool)
 
-        # Add web search tool if enabled in settings
-        if getattr(settings, 'web_search', None) and settings.web_search.enabled:
-            web_search_tool = WebSearchTool()
+        # Add web search tool if enabled globally or in agent's enabled_builtin_tools
+        web_search_enabled = getattr(settings, 'web_search', None) and settings.web_search.enabled
+        if web_search_enabled or 'web_search' in self.agent.enabled_builtin_tools:
+            web_search_tool = WebSearchTool(
+                api_key=settings.web_search.api_key if web_search_enabled else None,
+                base_url=settings.web_search.base_url if web_search_enabled else None,
+            )
             tools.append(web_search_tool)
+
+        # Add script execution tool if enabled in agent's enabled_builtin_tools
+        if 'execute_script' in self.agent.enabled_builtin_tools:
+            script_tool = ScriptExecutionTool(
+                opensandbox_url=getattr(settings, 'opensandbox', None) and settings.opensandbox.base_url
+            )
+            tools.append(script_tool)
 
         for tool_id in self.agent.tool_ids:
             tool = await self.storage.get_tool(tool_id)
@@ -615,9 +633,13 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
                         file_path.write_text(content, encoding="utf-8")
                     logger.info(f"_get_skill_sources: wrote {file_path}")
 
-        # Return the temp/skills directory as the source
-        logger.info(f"_get_skill_sources: returning sources = [{str(skills_dir)}]")
-        return [str(skills_dir)]
+        # Include extra skill paths in returned sources
+        all_sources = [str(skills_dir)]
+        for extra_path in self._extra_skill_paths:
+            if extra_path and Path(extra_path).exists():
+                all_sources.append(extra_path)
+        logger.info(f"_get_skill_sources: returning sources = {all_sources}")
+        return all_sources
 
     def _add_filesystem_skill_to_backend(self, backend: StateBackend, skill_path: str):
         """Add a filesystem-based skill to the backend.
