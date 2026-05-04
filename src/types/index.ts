@@ -113,3 +113,23 @@ export interface ModelConfig {
   created_at: string
   updated_at: string
 }
+
+export interface ScheduledTask {
+  id: string
+  name: string
+  description: string
+  agent_id: string
+  schedule_type: 'once' | 'cron' | 'interval'
+  cron_expression?: string
+  interval_seconds?: number
+  run_at?: string
+  task_input: string
+  model_config_id?: string
+  status: 'active' | 'paused' | 'completed' | 'failed'
+  last_run_at?: string
+  next_run_at?: string
+  run_count: number
+  last_error?: string
+  created_at: string
+  updated_at: string
+}
