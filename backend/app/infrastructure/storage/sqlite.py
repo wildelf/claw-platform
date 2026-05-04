@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, List, Optional
 
-from sqlalchemy import Column, String, Text, Boolean, Integer, DateTime, ForeignKey, create_engine
+from sqlalchemy import Column, String, Text, Boolean, Integer, DateTime, ForeignKey, create_engine, Index
 
 from app.domain.base import EntityId
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
@@ -134,6 +134,9 @@ class UserModel(Base):
 
 class ScheduledTaskModel(Base):
     __tablename__ = "scheduled_tasks"
+    __table_args__ = (
+        Index("ix_scheduled_tasks_user_id", "user_id"),
+    )
 
     id = Column(String(36), primary_key=True)
     name = Column(String(100), nullable=False)
@@ -687,12 +690,13 @@ class SQLiteStorage:
             row = result.scalar_one_or_none()
             return self._to_scheduled_task(row) if row else None
 
-    async def list_scheduled_tasks(self, user_id: str, offset: int = 0, limit: int = 100) -> List[ScheduledTask]:
+    async def list_scheduled_tasks(self, user_id: EntityId, offset: int = 0, limit: int = 100) -> List[ScheduledTask]:
         async with self.async_session() as session:
             from sqlalchemy import select
             result = await session.execute(
                 select(ScheduledTaskModel)
                 .where(ScheduledTaskModel.user_id == user_id)
+                .order_by(ScheduledTaskModel.created_at.desc())
                 .offset(offset)
                 .limit(limit)
             )
