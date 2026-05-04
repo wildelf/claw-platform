@@ -95,6 +95,9 @@ class TestScheduledTaskAdapter:
         """Listing scheduled tasks should return tasks for user."""
         user_id = sample_scheduled_task.user_id
 
+        # Use same user_id for interval task
+        sample_scheduled_task_interval.user_id = user_id
+
         await storage.save_scheduled_task(sample_scheduled_task)
         await storage.save_scheduled_task(sample_scheduled_task_interval)
 
