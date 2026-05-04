@@ -257,7 +257,7 @@ function handleEvent(data: any, agentMessage: Message) {
       break
 
     case 'thinking':
-      agentMessage.thinking = (agentMessage.thinking || '') + (data.content || '')
+      agentMessage.thinking = (agentMessage.thinking || '') + (data.message || '')
       break
 
     case 'content':

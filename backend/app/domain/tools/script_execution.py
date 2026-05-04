@@ -47,8 +47,14 @@ class ScriptExecutionTool(BaseTool):
         """Synchronous invoke (delegates to async)."""
         return asyncio.run(self._ainvoke(tool_input, **kwargs))
 
-    def _run(self, tool_input: dict[str, Any], **kwargs) -> dict[str, Any]:
+    def _run(self, tool_input: str | dict[str, Any], **kwargs) -> dict[str, Any]:
         """Synchronous run (delegates to async)."""
+        if isinstance(tool_input, str):
+            import json
+            try:
+                tool_input = json.loads(tool_input)
+            except json.JSONDecodeError:
+                tool_input = {"script": tool_input}
         return asyncio.run(self._ainvoke(tool_input, **kwargs))
 
     async def execute_script(

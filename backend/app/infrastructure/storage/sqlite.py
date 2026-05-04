@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, relationship
 
 from app.domain.agent import Agent, AgentStatus
+from app.domain.scheduled_task import ScheduledTask, ScheduleType, ScheduledTaskStatus
 from app.domain.skill import Skill, SkillStatus, SkillFile, FileType
 from app.domain.tool import Tool, ToolType
 from app.domain.model_config import ModelConfig, ModelModality, ModelProviderType
@@ -131,6 +132,29 @@ class UserModel(Base):
     updated_at = Column(DateTime, nullable=False)
 
 
+class ScheduledTaskModel(Base):
+    __tablename__ = "scheduled_tasks"
+
+    id = Column(String(36), primary_key=True)
+    name = Column(String(100), nullable=False)
+    description = Column(Text, default="")
+    agent_id = Column(String(36), nullable=False)
+    user_id = Column(String(36), nullable=False)
+    schedule_type = Column(String(20), nullable=False)
+    cron_expression = Column(String(100), nullable=True)
+    interval_seconds = Column(Integer, nullable=True)
+    run_at = Column(DateTime, nullable=True)
+    task_input = Column(Text, default="")
+    model_config_id = Column(String(36), nullable=True)
+    status = Column(String(20), default="active")
+    last_run_at = Column(DateTime, nullable=True)
+    next_run_at = Column(DateTime, nullable=True)
+    run_count = Column(Integer, default=0)
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+
+
 class SQLiteStorage:
     """SQLite storage implementation."""
 
@@ -152,6 +176,10 @@ class SQLiteStorage:
         """Initialize database tables."""
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
+    async def close(self):
+        """Close the database connection."""
+        await self.engine.dispose()
 
     def _to_agent(self, row: AgentModel) -> Agent:
         # Backward compat: model_config_id → text_model_config_id
@@ -237,6 +265,28 @@ class SQLiteStorage:
             password_hash=row.password_hash,
             role=UserRole(row.role),
             is_active=row.is_active,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+
+    def _to_scheduled_task(self, row: ScheduledTaskModel) -> ScheduledTask:
+        return ScheduledTask(
+            id=EntityId(row.id),
+            name=row.name,
+            description=row.description or "",
+            agent_id=EntityId(row.agent_id),
+            user_id=EntityId(row.user_id),
+            schedule_type=ScheduleType(row.schedule_type),
+            cron_expression=row.cron_expression,
+            interval_seconds=row.interval_seconds,
+            run_at=row.run_at,
+            task_input=row.task_input or "",
+            model_config_id=EntityId(row.model_config_id) if row.model_config_id else None,
+            status=ScheduledTaskStatus(row.status),
+            last_run_at=row.last_run_at,
+            next_run_at=row.next_run_at,
+            run_count=row.run_count or 0,
+            last_error=row.last_error,
             created_at=row.created_at,
             updated_at=row.updated_at,
         )
@@ -587,4 +637,69 @@ class SQLiteStorage:
         async with self.async_session() as session:
             from sqlalchemy import delete
             await session.execute(delete(UserModel).where(UserModel.id == id))
+            await session.commit()
+
+    # ScheduledTask operations
+    async def save_scheduled_task(self, task: ScheduledTask) -> None:
+        async with self.async_session() as session:
+            from sqlalchemy import select
+
+            result = await session.execute(
+                select(ScheduledTaskModel).where(ScheduledTaskModel.id == task.id)
+            )
+            existing = result.scalar_one_or_none()
+
+            model = ScheduledTaskModel(
+                id=task.id,
+                name=task.name,
+                description=task.description,
+                agent_id=task.agent_id,
+                user_id=task.user_id,
+                schedule_type=task.schedule_type,
+                cron_expression=task.cron_expression,
+                interval_seconds=task.interval_seconds,
+                run_at=task.run_at,
+                task_input=task.task_input,
+                model_config_id=task.model_config_id,
+                status=task.status,
+                last_run_at=task.last_run_at,
+                next_run_at=task.next_run_at,
+                run_count=task.run_count,
+                last_error=task.last_error,
+                created_at=task.created_at,
+                updated_at=task.updated_at,
+            )
+
+            if existing:
+                for key in ['name', 'description', 'agent_id', 'schedule_type',
+                           'cron_expression', 'interval_seconds', 'run_at',
+                           'task_input', 'model_config_id', 'status',
+                           'last_run_at', 'next_run_at', 'run_count', 'last_error', 'updated_at']:
+                    setattr(existing, key, getattr(model, key))
+            else:
+                session.add(model)
+            await session.commit()
+
+    async def get_scheduled_task(self, id: str) -> Optional[ScheduledTask]:
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            result = await session.execute(select(ScheduledTaskModel).where(ScheduledTaskModel.id == id))
+            row = result.scalar_one_or_none()
+            return self._to_scheduled_task(row) if row else None
+
+    async def list_scheduled_tasks(self, user_id: str, offset: int = 0, limit: int = 100) -> List[ScheduledTask]:
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            result = await session.execute(
+                select(ScheduledTaskModel)
+                .where(ScheduledTaskModel.user_id == user_id)
+                .offset(offset)
+                .limit(limit)
+            )
+            return [self._to_scheduled_task(row) for row in result.scalars().all()]
+
+    async def delete_scheduled_task(self, id: str) -> None:
+        async with self.async_session() as session:
+            from sqlalchemy import delete
+            await session.execute(delete(ScheduledTaskModel).where(ScheduledTaskModel.id == id))
             await session.commit()

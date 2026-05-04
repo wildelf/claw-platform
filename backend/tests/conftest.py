@@ -22,7 +22,7 @@ def temp_db():
 async def storage(temp_db):
     """Create a storage instance with temporary database."""
     storage = SQLiteStorage(temp_db)
-    await storage.initialize()
+    await storage.init_db()
     yield storage
     await storage.close()
 

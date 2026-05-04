@@ -647,3 +647,207 @@ auth:
 15. 前端 API 集成
 16. 认证系统
 17. 完善与测试
+
+---
+
+## 十一、QoderWake 对标与架构对齐
+
+> **参考产品：** 阿里巴巴 QoderWake（2026年4月发布）
+> **定位：** 业界首个安全可控、持续进化的生产级数字员工平台
+
+### 11.1 QoderWake 核心特性
+
+**Harness-First 架构**
+- 将大模型、Agent 框架、MCP 工具集、可自定义 Skills 封装为统一平台
+- 用户通过自然语言驱动 AI 完成复杂任务
+- 任务全程本地执行，仅指令加密上云，敏感数据不出电脑
+
+**多角色数字员工**
+| 角色 | 能力 |
+|------|------|
+| 软件工程师 | 代码变更简报、错误诊断、告警分诊、Bug 修复 |
+| 运营专家 | 数据分析、报表生成、多平台内容分发 |
+| 分析师 | 白皮书解读、PPT 生成、竞品分析 |
+
+**本地沙盒执行**
+- 文件操作、数据处理全程在本地完成
+- 无需将敏感文件上传云端
+- 支持离线运行
+
+**Skills 生态**
+- 社区市场：用户可安装他人分享的 Skills
+- 自定义 Skills：用户可编写自己的 Skill 指令集
+- Quest 1.0：支持 Agent 自我学习与快速进化
+
+**多端协同**
+- 桌面端（QoderWork）：Mac/Windows
+- 移动端：Qoder 移动应用
+- IM 打通：钉钉、微信、飞书
+
+---
+
+### 11.2 架构对比
+
+```
+QoderWake 架构                          Claw Platform 架构
+────────────────────────────────────────────────────────────────
+┌─────────────────────────┐            ┌─────────────────────────┐
+│   自然语言交互层          │            │   Vue Frontend           │
+│   (对话/指令输入)         │            │   (管理界面)              │
+└───────────┬─────────────┘            └───────────┬─────────────┘
+            │                                      │
+┌───────────▼─────────────┐            ┌───────────▼─────────────┐
+│   Harness 调度层         │            │   FastAPI REST API       │
+│   (任务分解/执行调度)      │            │   (Agent/Skill/Tool API) │
+└───────────┬─────────────┘            └───────────┬─────────────┘
+            │                                      │
+┌───────────▼─────────────┐            ┌───────────▼─────────────┐
+│   Skills 中间件          │◄───────────│   Application Layer       │
+│   (技能执行/上下文管理)   │            │   (AgentService 等)      │
+└───────────┬─────────────┘            └───────────┬─────────────┘
+            │                                      │
+┌───────────▼─────────────┐            ┌───────────▼─────────────┐
+│   Agent 执行层           │            │   deepagents 运行时      │
+│   (多模型协作/规划执行)   │            │   (LangGraph/SkillsMW)  │
+└───────────┬─────────────┘            └───────────┬─────────────┘
+            │                                      │
+┌───────────▼─────────────┐            ┌───────────▼─────────────┐
+│   MCP 工具集             │            │   Infrastructure Layer   │
+│   (文件系统/代码执行/浏览器)│            │   (MCP Adapter/Storage)  │
+└─────────────────────────┘            └─────────────────────────┘
+```
+
+---
+
+### 11.3 功能映射
+
+| QoderWake | Claw Platform | 实现方式 |
+|-----------|----------------|----------|
+| 数字员工 Agent | Agent 实体 | `domain/agent.py` + `api/agents.py` |
+| Skills 技能系统 | Skill 实体 + 自进化 | `domain/skill.py` + `feedback_service.py` |
+| MCP 工具集成 | MCP Adapter | `infrastructure/mcp/adapter.py` |
+| 本地沙盒执行 | Storage 抽象 | `infrastructure/storage/sqlite.py` |
+| 多模型协作 | ModelConfig + ModelAdapter | `infrastructure/model/*.py` |
+| 自然语言驱动 | Agent.run() + deepagents | `deepagents/wrapper.py` |
+| Skills 社区市场 | Skill CRUD + 文件管理 | `api/skills.py` |
+| Quest 自我进化 | FeedbackService | `application/feedback_service.py` |
+| 多端协同 | 统一的 REST API | FastAPI 后端 |
+
+---
+
+### 11.4 后续实现要点
+
+**Phase 4 完成后的扩展方向：**
+
+1. **本地沙盒执行**
+   - 当前实现为云端存储（SQLite/Postgres）
+   - 后续需增加本地文件操作能力（MCP Server for filesystem）
+   - 参考 QoderWake 的"敏感数据不出电脑"模式
+
+2. **自然语言任务执行**
+   - Agent.run() 接口需支持自然语言输入
+   - deepagents 已有 LangGraph 支持，需要集成 SkillsMiddleware
+   - 任务拆解和执行反馈机制
+
+3. **Skills 生态**
+   - Skill 市场：可扩展为用户间分享 Skill 模板
+   - Skill 自进化：基于 positive feedback 自动优化 SKILL.md
+   - Quest 1.0 级别的自我学习能力
+
+4. **多端客户端**
+   - 桌面端（QoderWork 对标）：Electron 或 Tauri
+   - 移动端：Flutter 或 React Native
+   - IM 集成：钉钉/微信/飞书 Bot 接口
+
+5. **安全与权限**
+   - 用户数据隔离（当前已设计 user_id 过滤）
+   - MCP 工具调用权限控制
+   - Skill 执行权限分级（Admin vs User）
+
+---
+
+### 11.5 DeepAgents 能力评估
+
+> **调研时间：** 2026-05-04
+> **结论：** DeepAgents 能支撑数字员工进化，但需分阶段完善
+
+#### DeepAgents 核心能力对照 QoderWake
+
+| QoderWake 能力 | DeepAgents 支持 | 当前项目实现 |
+|----------------|------------------|--------------|
+| 规划工具 | 内置 `write_todos`，LLM 可动态生成/修改计划 | ✅ 已集成 |
+| 文件系统/沙盒 | `FilesystemBackend` + virtual_mode=True | ✅ 已集成 |
+| 子 Agent 多角色 | 支持生成子 Agent 处理子任务 | ⚠️ 通用子 Agent，未做角色分组 |
+| 长期记忆 | `StateBackend` 跨会话持久化 | ⚠️ 未完整实现 |
+| 人机协同/中断 | 支持中断点配置 | ⚠️ API 层未暴露暂停/恢复接口 |
+| Skills 自进化 | 框架支持，需配合 FeedbackService | ⚠️ `skill_evolution_service.py` 未完善 |
+
+#### 当前项目集成状态
+
+```
+backend/app/deepagents/
+├── wrapper.py          # DeepAgentsRunner，封装 create_deep_agent
+└── skills_middleware.py # SkillEventMiddleware，扩展技能加载事件+路径解析
+```
+
+**已实现功能：**
+- 自然语言任务执行（Agent.run()）
+- Skills 加载/读取事件流式输出
+- 虚拟文件系统沙盒
+- 多模型动态切换（文本/图像）
+
+#### 核心差距
+
+| 差距 | 描述 | 优先级 |
+|------|------|--------|
+| **子 Agent 角色分组** | 当前子 Agent 是通用能力，未针对"软件工程师/运营/分析师"做专门 prompt 模板和工具分组 | 高 |
+| **Skills 自进化** | `skill_evolution_service.py` 存在但 SKILL.md 自动优化未实现 | 高 |
+| **人机协同中断** | deepagents 支持中断点，但 API 层没有暴露 `pause/resume` 接口 | 中 |
+| **长期记忆持久化** | StateBackend 未与平台存储层打通 | 中 |
+
+#### 实施建议
+
+**短期（Phase 4 收尾）：**
+- 完成 auth 系统后，完善 `skill_evolution_service.py`
+- 实现基于 positive feedback 的 SKILL.md 自动优化
+
+**中期（数字员工扩展）：**
+- 扩展 `AgentService` 支持角色模板（Software Engineer / Operator / Analyst）
+- 每个角色绑定不同的 Skills 组合和 Tools 分组
+- 实现 `pause/resume` API 接口
+
+**长期：**
+- 参考 QoderWake Harness-First 架构，设计统一的 Agent Harness 层
+- 封装 deepagents 中间件机制，对外提供简化的数字员工配置接口
+- 打通 StateBackend 与平台存储，实现跨会话记忆持久化
+
+#### 架构分层
+
+```
+Claw Platform                    QoderWake 参考
+─────────────────────────────────────────────────────
+DeepAgentsRunner                 Harness 调度层
+    │                            (任务分解/执行调度)
+    ├── SkillEventMiddleware    ◄── Skills 中间件
+    ├── FilesystemBackend       ◄── 本地沙盒执行
+    └── create_deep_agent       ◄── Agent 执行层
+            │
+            ├── langgraph       ◄── LangGraph Runtime
+            └── langchain       ◄── Agent 核心循环
+```
+
+---
+
+### 11.6 参考资料
+
+**QoderWake：**
+- [阿里发布数字员工QoderWake](https://www.sohu.com/a/1016653230_121157270)（2026-04-30）
+- [QoderWork 桌面端全面开放](https://so.html5.qq.com/page/real/search_news?docid=70000021_06669a69bfe14052)（2026-03-03）
+- [Qoder Quest 1.0 自我进化](https://so.html5.qq.com/page/real/search_news?docid=70000021_03969673fe182252)（2026-01-14）
+- [CSDN QoderWork 详解](https://blog.csdn.net/qq_36722887/article/details/158664104)
+
+**DeepAgents：**
+- [DeepAgents: LangChain 生态下的长周期任务智能代理框架](https://download.csdn.net/blog/column/11644666/155277962)（2026-04-29）
+- [LangChain 发布 Deep Agents: 自主智能体框架](https://new.qq.com/rain/a/20260208A01CSE00)（2026-02-08）
+- [DeepAgents 0.2 更新: 可插拔后端](https://blog.csdn.net/YoungOne2333/article/details/154787274)（2025-11-13）
+- [LangChain DeepAgents 速通指南](https://blog.csdn.net/weixin_42782643/article/details/158388539)（2026-04-17）

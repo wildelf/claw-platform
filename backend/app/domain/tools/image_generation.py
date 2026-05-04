@@ -107,7 +107,13 @@ class ImageGenerationTool(BaseTool):
             "revised_prompt": revised_prompt,
         }
 
-    def _run(self, tool_input: dict[str, Any], **kwargs) -> dict[str, Any]:
+    def _run(self, tool_input: str | dict[str, Any], **kwargs) -> dict[str, Any]:
         """Sync invoke."""
         import asyncio
+        if isinstance(tool_input, str):
+            import json
+            try:
+                tool_input = json.loads(tool_input)
+            except json.JSONDecodeError:
+                tool_input = {"prompt": tool_input}
         return asyncio.run(self._ainvoke(tool_input, **kwargs))
