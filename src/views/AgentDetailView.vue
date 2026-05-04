@@ -4,13 +4,16 @@ import { useRoute, useRouter } from 'vue-router'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
 import Badge from '@/components/ui/Badge.vue'
+import Input from '@/components/ui/Input.vue'
 import { useAgentsStore } from '@/stores/agents'
 import { useModelsStore } from '@/stores/models'
+import { useScheduledTasksStore } from '@/stores/scheduled_tasks'
 
 const route = useRoute()
 const router = useRouter()
 const agentsStore = useAgentsStore()
 const modelsStore = useModelsStore()
+const scheduledTasksStore = useScheduledTasksStore()
 
 const agentId = computed(() => route.params.id as string)
 const agent = computed(() => agentsStore.currentAgent)
@@ -63,9 +66,27 @@ interface Message {
 const messages = ref<Message[]>([])
 const isLoading = ref(false)
 
+// Schedule modal state
+const showScheduleModal = ref(false)
+const scheduleForm = ref({
+  name: '',
+  description: '',
+  schedule_type: 'once' as 'once' | 'cron' | 'interval',
+  cron_expression: '0 9 * * *',
+  interval_seconds: 3600,
+  run_at: '',
+  task_input: ''
+})
+const scheduleSubmitting = ref(false)
+
+const agentScheduledTasks = computed(() => {
+  return scheduledTasksStore.tasks.filter(t => t.agent_id === agentId.value)
+})
+
 onMounted(async () => {
   await agentsStore.fetchAgent(agentId.value)
   await modelsStore.fetchModels()
+  await scheduledTasksStore.fetchTasks()
 })
 
 function getStatusVariant(status: string): 'success' | 'warning' | 'danger' | 'default' {
@@ -112,6 +133,64 @@ function getEventLabel(type: string): string {
 function clearOutput() {
   messages.value = []
   seenEvents.clear()
+}
+
+function openScheduleModal() {
+  scheduleForm.value = {
+    name: '',
+    description: '',
+    schedule_type: 'once',
+    cron_expression: '0 9 * * *',
+    interval_seconds: 3600,
+    run_at: '',
+    task_input: ''
+  }
+  showScheduleModal.value = true
+}
+
+async function handleScheduleSubmit() {
+  if (!scheduleForm.value.name.trim() || !scheduleForm.value.task_input.trim()) return
+  scheduleSubmitting.value = true
+  try {
+    const payload: any = {
+      name: scheduleForm.value.name,
+      description: scheduleForm.value.description,
+      agent_id: agentId.value,
+      schedule_type: scheduleForm.value.schedule_type,
+      task_input: scheduleForm.value.task_input
+    }
+    if (scheduleForm.value.schedule_type === 'cron') {
+      payload.cron_expression = scheduleForm.value.cron_expression
+    } else if (scheduleForm.value.schedule_type === 'interval') {
+      payload.interval_seconds = scheduleForm.value.interval_seconds
+    } else {
+      payload.run_at = scheduleForm.value.run_at
+    }
+    await scheduledTasksStore.createTask(payload)
+    showScheduleModal.value = false
+  } catch (e) {
+    console.error('Failed to create scheduled task:', e)
+  } finally {
+    scheduleSubmitting.value = false
+  }
+}
+
+function formatScheduleBrief(task: any): string {
+  switch (task.schedule_type) {
+    case 'cron': return `Cron: ${task.cron_expression}`
+    case 'interval': return `Every ${task.interval_seconds}s`
+    case 'once': return `Once at ${task.run_at ? new Date(task.run_at).toLocaleString() : 'Not set'}`
+  }
+}
+
+async function triggerTask(taskId: string) {
+  await scheduledTasksStore.triggerTask(taskId)
+}
+
+async function deleteTask(taskId: string) {
+  if (confirm('Are you sure?')) {
+    await scheduledTasksStore.deleteTask(taskId)
+  }
 }
 
 function handleRun() {
@@ -302,9 +381,34 @@ function handleEdit() {
       <h1 class="text-2xl font-bold text-gray-900">Agent Details</h1>
       <div class="flex gap-2">
         <Button variant="primary" @click="handleRun" :loading="running">Run Agent</Button>
+        <Button variant="secondary" @click="openScheduleModal">Schedule</Button>
         <Button variant="secondary" @click="handleEdit">Edit</Button>
       </div>
     </div>
+
+    <!-- Scheduled Tasks Section -->
+    <Card title="Scheduled Tasks" :padding="false">
+      <div class="p-4">
+        <div v-if="agentScheduledTasks.length === 0" class="text-center py-4 text-gray-500">
+          No scheduled tasks for this agent
+        </div>
+        <div v-else class="space-y-2">
+          <div v-for="task in agentScheduledTasks" :key="task.id" class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+            <div>
+              <p class="font-medium text-gray-900">{{ task.name }}</p>
+              <p class="text-sm text-gray-500">{{ formatScheduleBrief(task) }}</p>
+            </div>
+            <div class="flex gap-2">
+              <Button variant="primary" size="sm" @click="triggerTask(task.id)">Run Now</Button>
+              <Button variant="danger" size="sm" @click="deleteTask(task.id)">Delete</Button>
+            </div>
+          </div>
+        </div>
+        <div class="mt-4">
+          <Button variant="secondary" size="sm" @click="openScheduleModal">Create Scheduled Task</Button>
+        </div>
+      </div>
+    </Card>
 
     <div v-if="agentsStore.loading" class="text-center py-8 text-gray-500">Loading...</div>
     <div v-else-if="!agent" class="text-center py-8 text-gray-500">Agent not found</div>
@@ -458,6 +562,56 @@ function handleEdit() {
           </div>
         </div>
       </Card>
+
+      <!-- Schedule Task Modal -->
+      <div v-if="showScheduleModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <Card class="w-full max-w-md" :title="agent ? `Schedule Task for ${agent.name}` : 'Schedule Task'">
+          <form @submit.prevent="handleScheduleSubmit" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Task Name</label>
+              <Input v-model="scheduleForm.name" placeholder="e.g., Daily Report" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <Input v-model="scheduleForm.description" placeholder="Optional description" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Schedule Type</label>
+              <select v-model="scheduleForm.schedule_type" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                <option value="once">Once</option>
+                <option value="cron">Cron Expression</option>
+                <option value="interval">Interval</option>
+              </select>
+            </div>
+            <div v-if="scheduleForm.schedule_type === 'cron'">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Cron Expression</label>
+              <Input v-model="scheduleForm.cron_expression" placeholder="0 9 * * *" />
+              <p class="mt-1 text-xs text-gray-500">Format: minute hour day month weekday</p>
+            </div>
+            <div v-if="scheduleForm.schedule_type === 'interval'">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Interval (seconds)</label>
+              <Input v-model="scheduleForm.interval_seconds" type="number" />
+            </div>
+            <div v-if="scheduleForm.schedule_type === 'once'">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Run At</label>
+              <Input v-model="scheduleForm.run_at" type="datetime-local" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Task Input</label>
+              <textarea
+                v-model="scheduleForm.task_input"
+                rows="3"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                placeholder="What should this agent do?"
+              />
+            </div>
+            <div class="flex gap-2 justify-end">
+              <Button variant="secondary" @click="showScheduleModal = false" :disabled="scheduleSubmitting">Cancel</Button>
+              <Button variant="primary" @click="handleScheduleSubmit" :loading="scheduleSubmitting">Create</Button>
+            </div>
+          </form>
+        </Card>
+      </div>
     </template>
   </div>
 </template>
