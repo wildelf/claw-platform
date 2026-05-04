@@ -350,7 +350,11 @@ async def generate_skill(
         user_id=user_id,
     )
 
-    runner = DeepAgentsRunner(agent, storage, system_prompt_override=system_prompt)
+    runner = DeepAgentsRunner(
+        agent, storage,
+        system_prompt_override=system_prompt,
+        extra_skill_paths=[SKILL_CREATOR_PATH],
+    )
 
     async def stream_events():
         try:

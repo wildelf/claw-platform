@@ -30,3 +30,18 @@ evolution:
 
 skill_creator:
   path: "/path/to/skills-main/skills/skill-creator"
+
+web_search:
+  enabled: true
+  provider: "minimax"
+  api_key: "your-api-key-here"
+  base_url: "https://api.minimaxi.com"
+  mcp_command: "uvx"
+  mcp_args:
+    - "minimax-coding-plan-mcp"
+
+redis:
+  host: "localhost"
+  port: 6379
+  db: 0
+  password: null

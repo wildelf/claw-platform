@@ -95,12 +95,6 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
-      path: '/scheduled-tasks',
-      name: 'scheduled-tasks',
-      component: () => import('@/views/ScheduledTasksView.vue'),
-      meta: { requiresAuth: true }
-    },
-    {
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
