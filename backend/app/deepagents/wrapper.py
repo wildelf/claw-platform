@@ -559,7 +559,12 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
 
     def _build_system_prompt(self) -> str:
         """Build system prompt from agent configuration."""
+        from datetime import date
         parts = []
+
+        # Add current date awareness
+        today = date.today()
+        parts.append(f"Current date: {today.year}-{today.month:02d}-{today.day:02d}")
 
         if self.agent.role:
             parts.append(f"You are {self.agent.role}.")
