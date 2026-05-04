@@ -180,6 +180,7 @@ function formatScheduleBrief(task: any): string {
     case 'cron': return `Cron: ${task.cron_expression}`
     case 'interval': return `Every ${task.interval_seconds}s`
     case 'once': return `Once at ${task.run_at ? new Date(task.run_at).toLocaleString() : 'Not set'}`
+    default: return task.schedule_type
   }
 }
 
