@@ -8,10 +8,28 @@ export interface Tool {
   id: string
   name: string
   description: string
-  type?: 'CUSTOM' | 'MCP'
+  type?: 'CUSTOM' | 'MCP' | 'BUILTIN'
   config?: Record<string, any>
   allowed_tools?: string[]
 }
+
+// Built-in/local tools that are not persisted but can be enabled for agents
+export interface BuiltInTool {
+  name: string
+  description: string
+  enabled?: boolean
+}
+
+export const BUILTIN_TOOLS: BuiltInTool[] = [
+  {
+    name: 'web_search',
+    description: 'Search the web for current information using MiniMax MCP or DuckDuckGo fallback',
+  },
+  {
+    name: 'execute_script',
+    description: 'Execute Python scripts in an isolated sandbox environment',
+  },
+]
 
 export interface FeedbackEvent {
   id: string
@@ -31,6 +49,7 @@ export interface Agent {
   backstory: string
   skill_ids: string[]
   tool_ids: string[]
+  enabled_builtin_tools: string[]
   model_config_id: string | null
   text_model_config_id: string | null
   image_model_config_id: string | null

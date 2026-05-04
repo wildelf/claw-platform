@@ -38,6 +38,7 @@ class AgentModel(Base):
     backstory = Column(Text, default="")
     skill_ids = Column(Text, default="[]")
     tool_ids = Column(Text, default="[]")
+    enabled_builtin_tools = Column(Text, default="[]")
     model_config_id = Column(String(36), nullable=True)
     text_model_config_id = Column(String(36), nullable=True)
     image_model_config_id = Column(String(36), nullable=True)
@@ -196,6 +197,7 @@ class SQLiteStorage:
             backstory=row.backstory,
             skill_ids=[EntityId(sid) for sid in json.loads(row.skill_ids)],
             tool_ids=[EntityId(tid) for tid in json.loads(row.tool_ids)],
+            enabled_builtin_tools=json.loads(row.enabled_builtin_tools or "[]"),
             text_model_config_id=EntityId(text_id) if text_id else None,
             image_model_config_id=EntityId(row.image_model_config_id) if row.image_model_config_id else None,
             video_model_config_id=EntityId(row.video_model_config_id) if row.video_model_config_id else None,
@@ -314,6 +316,7 @@ class SQLiteStorage:
                 backstory=agent.backstory,
                 skill_ids=json.dumps(agent.skill_ids),
                 tool_ids=json.dumps(agent.tool_ids),
+                enabled_builtin_tools=json.dumps(agent.enabled_builtin_tools),
                 text_model_config_id=agent.text_model_config_id,
                 image_model_config_id=agent.image_model_config_id,
                 video_model_config_id=agent.video_model_config_id,
@@ -326,7 +329,7 @@ class SQLiteStorage:
             if existing:
                 # Update existing record
                 for key in ['name', 'description', 'role', 'goal', 'backstory',
-                           'skill_ids', 'tool_ids',
+                           'skill_ids', 'tool_ids', 'enabled_builtin_tools',
                            'text_model_config_id', 'image_model_config_id', 'video_model_config_id',
                            'status', 'updated_at']:
                     setattr(existing, key, getattr(model, key))

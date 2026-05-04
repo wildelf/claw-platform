@@ -13,11 +13,9 @@ from app.api.deps import Storage, UserId
 from app.application.agent_service import AgentService
 from app.domain.agent import Agent
 from app.domain.base import EntityId
+from app.infrastructure.redis_client import get_agent_registry
 
 logger = logging.getLogger(__name__)
-
-# Global registry of running agent tasks: agent_id -> task
-_running_agents: dict[str, asyncio.Task] = {}
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -32,6 +30,7 @@ class CreateAgent(BaseModel):
     backstory: str = Field(default="", max_length=2000)
     skill_ids: List[str] = Field(default_factory=list)
     tool_ids: List[str] = Field(default_factory=list)
+    enabled_builtin_tools: List[str] = Field(default_factory=list)
     text_model_config_id: str | None = None
     image_model_config_id: str | None = None
     video_model_config_id: str | None = None
@@ -47,6 +46,7 @@ class UpdateAgent(BaseModel):
     backstory: str | None = Field(default=None, max_length=2000)
     skill_ids: List[str] | None = None
     tool_ids: List[str] | None = None
+    enabled_builtin_tools: List[str] | None = None
     text_model_config_id: str | None = None
     image_model_config_id: str | None = None
     video_model_config_id: str | None = None
@@ -68,6 +68,7 @@ async def create_agent(
         backstory=data.backstory,
         skill_ids=data.skill_ids,
         tool_ids=data.tool_ids,
+        enabled_builtin_tools=data.enabled_builtin_tools,
         text_model_config_id=EntityId(data.text_model_config_id) if data.text_model_config_id else None,
         image_model_config_id=EntityId(data.image_model_config_id) if data.image_model_config_id else None,
         video_model_config_id=EntityId(data.video_model_config_id) if data.video_model_config_id else None,
@@ -166,9 +167,9 @@ async def run_agent(
         raise HTTPException(status_code=400, detail=str(e))
 
     async def stream_events():
-        # Register this task for cancellation by stop_agent
-        task_ref = asyncio.current_task()
-        _running_agents[agent_id] = task_ref
+        registry = get_agent_registry()
+        # Register this agent as running
+        await registry.register_agent(agent_id)
 
         task = request.task
 
@@ -183,9 +184,18 @@ async def run_agent(
             if model_config:
                 model_name = model_config.model
 
+        async def run_with_cancel_check(runner, task, images):
+            """Run agent with periodic cancel check."""
+            results = []
+            async for event in runner.run(task, images=images):
+                if await registry.check_cancel_requested(agent_id):
+                    break
+                results.append(event)
+            return results
+
         try:
             yield f"data: {json.dumps({'type': 'start', 'task': task, 'model': model_name})}\n\n"
-            async for event in runner.run(task, images=request.images):
+            for event in await run_with_cancel_check(runner, task, request.images):
                 # Handle the new event dict format
                 event_type = event.get("type", "content")
                 if event_type == "content":
@@ -207,7 +217,8 @@ async def run_agent(
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
         finally:
-            _running_agents.pop(agent_id, None)
+            await registry.unregister_agent(agent_id)
+            await registry.clear_cancel_flag(agent_id)
             await runner.stop()
 
     return StreamingResponse(
@@ -254,9 +265,9 @@ async def run_agent_with_feedback(
         raise HTTPException(status_code=400, detail=str(e))
 
     async def stream_events():
-        # Register this task for cancellation by stop_agent
-        task_ref = asyncio.current_task()
-        _running_agents[agent_id] = task_ref
+        registry = get_agent_registry()
+        # Register this agent as running
+        await registry.register_agent(agent_id)
 
         task = request.task
 
@@ -271,9 +282,18 @@ async def run_agent_with_feedback(
             if model_config:
                 model_name = model_config.model
 
+        async def run_with_cancel_check(runner, task, images):
+            """Run agent with periodic cancel check."""
+            results = []
+            async for event in runner.run(task, images=images):
+                if await registry.check_cancel_requested(agent_id):
+                    break
+                results.append(event)
+            return results
+
         try:
             yield f"data: {json.dumps({'type': 'start', 'task': task, 'model': model_name})}\n\n"
-            async for event in runner.run(task, images=request.images):
+            for event in await run_with_cancel_check(runner, task, request.images):
                 # Handle the new event dict format
                 event_type = event.get("type", "content")
                 if event_type == "content":
@@ -295,7 +315,8 @@ async def run_agent_with_feedback(
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
         finally:
-            _running_agents.pop(agent_id, None)
+            await registry.unregister_agent(agent_id)
+            await registry.clear_cancel_flag(agent_id)
             await runner.stop()
 
     return StreamingResponse(
@@ -316,11 +337,11 @@ async def stop_agent(
 ) -> dict:
     """Stop a running agent task.
 
-    Cancels the running task for the agent and returns immediately.
+    Signals the running task to cancel. The task running on any node
+    will check the cancel flag and raise CancelledError.
     The streaming response will receive a 'cancelled' event.
     """
-    if agent_id in _running_agents:
-        task = _running_agents[agent_id]
-        task.cancel()
+    registry = get_agent_registry()
+    if await registry.request_agent_cancel(agent_id):
         return {"status": "stopped", "agent_id": agent_id}
     return {"status": "not_running", "agent_id": agent_id}

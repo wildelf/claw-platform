@@ -1,20 +1,24 @@
-"""Web search tool using MiniMax API or fallback."""
+"""Web search tool using MiniMax MCP or fallback."""
 
+import asyncio
+import json
 import logging
 import re
+import tempfile
+from pathlib import Path
 from typing import Any, Literal
 
 import httpx
 from langchain_core.tools import BaseTool
 from pydantic import Field
 
-from app.domain.model_config import ModelConfig
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 
 class WebSearchTool(BaseTool):
-    """Tool for web search via MiniMax or compatible API.
+    """Tool for web search via MiniMax MCP or DuckDuckGo fallback.
 
     Dynamically created at agent runtime when configured.
     NOT persisted to the database.
@@ -28,9 +32,12 @@ class WebSearchTool(BaseTool):
         "Arguments: {query: str}"
     )
 
-    def __init__(self, model_config: ModelConfig = None, **kwargs):
+    def __init__(self, api_key: str | None = None, base_url: str | None = None, **kwargs):
         super().__init__(**kwargs)
-        self._model_config = model_config
+        self._api_key = api_key or settings.web_search.api_key
+        self._base_url = base_url or settings.web_search.base_url
+        self._mcp_command = settings.web_search.mcp_command
+        self._mcp_args = settings.web_search.mcp_args
 
     async def _ainvoke(self, tool_input: dict[str, Any], **kwargs) -> dict[str, Any]:
         """Execute web search asynchronously."""
@@ -39,68 +46,103 @@ class WebSearchTool(BaseTool):
         if not query:
             return {"error": "query is required"}
 
-        # Try MiniMax web search API first
-        if self._model_config and self._model_config.api_key:
-            result = await self._search_minimax(query)
+        # Try MiniMax MCP first if configured
+        if self._api_key:
+            result = await self._search_via_mcp(query)
             if result:
                 return result
 
-        # Fallback to a simple web search
+        # Fallback to DuckDuckGo
         result = await self._search_fallback(query)
         return result
 
-    async def _search_minimax(self, query: str) -> dict[str, Any] | None:
-        """Try MiniMax API for web search."""
-        if not self._model_config:
-            return None
+    async def _search_via_mcp(self, query: str) -> dict[str, Any] | None:
+        """Search using MiniMax MCP server."""
+        # Create temp directory for MCP if needed
+        cache_dir = Path(tempfile.gettempdir()) / "minimax_mcp_cache"
+        cache_dir.mkdir(exist_ok=True)
 
-        api_key = self._model_config.api_key
-        base_url = self._model_config.base_url
-
-        if not api_key or not base_url:
-            return None
-
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "model": self._model_config.model,
-            "query": query,
+        env = {
+            "MINIMAX_API_KEY": self._api_key,
+            "MINIMAX_MCP_BASE_PATH": str(cache_dir),
+            "MINIMAX_API_HOST": self._base_url,
+            "MINIMAX_API_RESOURCE_MODE": "local",
         }
 
         try:
-            async with httpx.AsyncClient() as client:
-                url = f"{base_url.rstrip('/')}/web_search"
-                logger.info("WebSearchTool making request to: %s", url)
-                response = await client.post(
-                    url,
-                    json=payload,
-                    headers=headers,
-                    timeout=30.0,
-                )
-                logger.info("WebSearchTool response status: %s", response.status_code)
-                if response.status_code == 404:
-                    return None  # API not available, try fallback
-                response.raise_for_status()
-                result = response.json()
-                logger.info("WebSearchTool result: %s", str(result)[:500])
-                return self._parse_web_search_result(result)
-        except httpx.HTTPError as e:
-            logger.error("WebSearchTool HTTP error: %s", e)
-            return None
+            process = await asyncio.create_subprocess_exec(
+                self._mcp_command,
+                *self._mcp_args,
+                env={**dict(__import__("os").environ), **env},
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
 
-    def _parse_web_search_result(self, result: dict) -> dict[str, Any]:
-        """Parse MiniMax web search response."""
-        data = result.get("data", {})
-        if isinstance(data, dict):
-            results = data.get("results", data.get("web_pages", []))
-        else:
-            results = []
-        return {
-            "results": results,
-            "answer": data.get("answer"),
-        }
+            # Send JSON-RPC request for tools/list
+            request_id = 1
+            list_request = {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "method": "tools/list",
+                "params": {},
+            }
+            process.stdin.write(json.dumps(list_request).encode() + b"\n")
+            await process.stdin.drain()
+
+            # Read response
+            response_line = await asyncio.wait_for(
+                process.stdout.readline(),
+                timeout=10.0
+            )
+            response = json.loads(response_line.decode())
+
+            # Find web search tool
+            tools = response.get("result", {}).get("tools", [])
+            web_search_tool = None
+            for tool in tools:
+                if tool.get("name") == "web_search":
+                    web_search_tool = tool
+                    break
+
+            if not web_search_tool:
+                logger.warning("No web_search tool found in MiniMax MCP")
+                process.terminate()
+                return None
+
+            # Call web_search tool
+            request_id = 2
+            call_request = {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "method": "tools/call",
+                "params": {
+                    "name": "web_search",
+                    "arguments": {"query": query},
+                },
+            }
+            process.stdin.write(json.dumps(call_request).encode() + b"\n")
+            await process.stdin.drain()
+
+            # Read response
+            response_line = await asyncio.wait_for(
+                process.stdout.readline(),
+                timeout=30.0
+            )
+            result = json.loads(response_line.decode())
+
+            process.terminate()
+            await process.wait()
+
+            content = result.get("result", {}).get("content", [])
+            if content and isinstance(content, list):
+                text = content[0].get("text", "")
+                return {"results": [], "raw": text}
+            return {"results": [], "raw": ""}
+
+        except Exception as e:
+            logger.error("MiniMax MCP search failed: %s", e)
+            return None
 
     async def _search_fallback(self, query: str) -> dict[str, Any]:
         """Fallback search using DuckDuckGo HTML."""
@@ -139,9 +181,7 @@ class WebSearchTool(BaseTool):
 
     def _run(self, tool_input: str | dict[str, Any], **kwargs) -> dict[str, Any]:
         """Sync invoke."""
-        import asyncio
         if isinstance(tool_input, str):
-            import json
             try:
                 tool_input = json.loads(tool_input)
             except json.JSONDecodeError:

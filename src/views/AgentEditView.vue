@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAgentsStore } from '@/stores/agents'
 import { useSkillsStore } from '@/stores/skills'
 import { useModelsStore } from '@/stores/models'
+import { useToolsStore } from '@/stores/tools'
+import { BUILTIN_TOOLS } from '@/types'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
 
@@ -12,6 +14,7 @@ const router = useRouter()
 const agentsStore = useAgentsStore()
 const skillsStore = useSkillsStore()
 const modelsStore = useModelsStore()
+const toolsStore = useToolsStore()
 
 const form = ref({
   name: '',
@@ -21,6 +24,7 @@ const form = ref({
   backstory: '',
   skill_ids: [] as string[],
   tool_ids: [] as string[],
+  enabled_builtin_tools: [] as string[],
   text_model_config_id: '',
   image_model_config_id: '',
   video_model_config_id: '',
@@ -37,7 +41,8 @@ onMounted(async () => {
     await Promise.all([
       agentsStore.fetchAgent(route.params.id as string),
       skillsStore.fetchSkills(),
-      modelsStore.fetchModels()
+      modelsStore.fetchModels(),
+      toolsStore.fetchTools()
     ])
     const agent = agentsStore.currentAgent
     if (agent) {
@@ -49,6 +54,7 @@ onMounted(async () => {
         backstory: agent.backstory,
         skill_ids: agent.skill_ids || [],
         tool_ids: agent.tool_ids || [],
+        enabled_builtin_tools: agent.enabled_builtin_tools || [],
         text_model_config_id: agent.text_model_config_id || '',
         image_model_config_id: agent.image_model_config_id || '',
         video_model_config_id: agent.video_model_config_id || '',
@@ -85,6 +91,19 @@ function toggleSkill(skillId: string) {
 
 function isSkillSelected(skillId: string) {
   return form.value.skill_ids.includes(skillId)
+}
+
+function toggleBuiltInTool(toolName: string) {
+  const idx = form.value.enabled_builtin_tools.indexOf(toolName)
+  if (idx === -1) {
+    form.value.enabled_builtin_tools.push(toolName)
+  } else {
+    form.value.enabled_builtin_tools.splice(idx, 1)
+  }
+}
+
+function isBuiltInToolSelected(toolName: string) {
+  return form.value.enabled_builtin_tools.includes(toolName)
 }
 </script>
 
@@ -168,6 +187,30 @@ function isSkillSelected(skillId: string) {
             </div>
             <div v-if="skillsStore.skills.length === 0" class="text-gray-500 text-sm">
               No skills available
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Built-in Tools</label>
+          <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded p-3">
+            <div
+              v-for="tool in BUILTIN_TOOLS"
+              :key="tool.name"
+              @click="toggleBuiltInTool(tool.name)"
+              class="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-50"
+              :class="isBuiltInToolSelected(tool.name) ? 'bg-green-50' : ''"
+            >
+              <input
+                type="checkbox"
+                :checked="isBuiltInToolSelected(tool.name)"
+                class="w-4 h-4"
+                @click.stop="toggleBuiltInTool(tool.name)"
+              />
+              <div>
+                <span class="font-medium">{{ tool.name }}</span>
+                <p class="text-gray-500 text-sm">{{ tool.description }}</p>
+              </div>
             </div>
           </div>
         </div>

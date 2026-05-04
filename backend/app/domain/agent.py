@@ -25,6 +25,7 @@ class Agent(BaseEntity):
     backstory: str = Field(max_length=2000, default="")
     skill_ids: List[EntityId] = Field(default_factory=list)
     tool_ids: List[EntityId] = Field(default_factory=list)
+    enabled_builtin_tools: List[str] = Field(default_factory=list)
     text_model_config_id: EntityId | None = None
     image_model_config_id: EntityId | None = None
     video_model_config_id: EntityId | None = None
