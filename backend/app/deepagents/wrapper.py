@@ -26,6 +26,7 @@ from app.domain.model_config import ModelProviderType
 from app.domain.tools.image_generation import ImageGenerationTool
 from app.infrastructure.storage.sqlite import SQLiteStorage
 from app.domain.tools.script_execution import ScriptExecutionTool
+from app.domain.tools.web_search import WebSearchTool
 from app.infrastructure.mcp.adapter import MCPAdapter
 from app.config import settings
 
@@ -481,6 +482,11 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
         if getattr(settings, 'opensandbox', None) and settings.opensandbox.enabled:
             script_tool = ScriptExecutionTool(opensandbox_url=settings.opensandbox.base_url)
             tools.append(script_tool)
+
+        # Add web search tool if enabled in settings
+        if getattr(settings, 'web_search', None) and settings.web_search.enabled:
+            web_search_tool = WebSearchTool()
+            tools.append(web_search_tool)
 
         for tool_id in self.agent.tool_ids:
             tool = await self.storage.get_tool(tool_id)

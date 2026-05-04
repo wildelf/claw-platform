@@ -73,6 +73,10 @@ class OpenSandboxConfig(BaseModel):
     memory_limit: str = "512Mi"
 
 
+class WebSearchConfig(BaseModel):
+    enabled: bool = False
+
+
 class Settings(BaseSettings):
     app: AppConfig = AppConfig()
     storage: StorageConfig = StorageConfig()
@@ -81,6 +85,7 @@ class Settings(BaseSettings):
     evolution: EvolutionConfig = EvolutionConfig()
     skill_creator: SkillCreatorConfig = SkillCreatorConfig()
     opensandbox: OpenSandboxConfig = OpenSandboxConfig()
+    web_search: WebSearchConfig = WebSearchConfig()
 
     @classmethod
     def from_yaml(cls, path: Path | str) -> "Settings":
