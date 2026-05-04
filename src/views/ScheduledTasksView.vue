@@ -34,6 +34,8 @@ const form = ref({
 })
 const formErrors = ref<Record<string, string>>({})
 const submitting = ref(false)
+const triggering = ref<string | null>(null)
+const deleting = ref<string | null>(null)
 
 onMounted(async () => {
   await loadTasks()
@@ -158,20 +160,28 @@ async function handleSubmit() {
 async function handleDelete(task: ScheduledTask) {
   if (!confirm(`Are you sure you want to delete "${task.name}"?`)) return
 
+  deleting.value = task.id
   try {
     await scheduledTasksApi.delete(task.id)
     await loadTasks()
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to delete task'
+  } finally {
+    deleting.value = null
   }
 }
 
 async function handleTrigger(task: ScheduledTask) {
+  if (!confirm(`Are you sure you want to run "${task.name}" now?`)) return
+
+  triggering.value = task.id
   try {
     await scheduledTasksApi.trigger(task.id)
     await loadTasks()
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to trigger task'
+  } finally {
+    triggering.value = null
   }
 }
 
@@ -193,8 +203,6 @@ function formatScheduleInfo(task: ScheduledTask): string {
       return `Every ${task.interval_seconds} seconds`
     case 'once':
       return `Once at ${task.run_at ? new Date(task.run_at).toLocaleString() : 'Not set'}`
-    default:
-      return task.schedule_type
   }
 }
 
@@ -279,9 +287,9 @@ const scheduleTypeOptions = [
 
           <!-- Actions -->
           <div class="flex gap-2 pt-3 border-t border-gray-200">
-            <Button variant="primary" size="sm" @click="handleTrigger(task)">Run Now</Button>
+            <Button variant="primary" size="sm" :loading="triggering === task.id" :disabled="!!triggering" @click="handleTrigger(task)">Run Now</Button>
             <Button variant="secondary" size="sm" @click="openEditModal(task)">Edit</Button>
-            <Button variant="danger" size="sm" @click="handleDelete(task)">Delete</Button>
+            <Button variant="danger" size="sm" :loading="deleting === task.id" :disabled="!!deleting" @click="handleDelete(task)">Delete</Button>
           </div>
         </div>
       </Card>
