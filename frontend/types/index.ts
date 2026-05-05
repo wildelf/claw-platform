@@ -17,6 +17,13 @@ export interface FeedbackEvent {
   timestamp: number
 }
 
+export interface Message {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: string
+}
+
 export type AgentStatus = 'pending' | 'active' | 'paused'
 
 export interface Agent {
