@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { Agent } from '@/types'
+import type { Agent, Message } from '@/types'
 import { agentsApi } from '@/api/agents'
 
 export const useAgentsStore = defineStore('agents', () => {
@@ -8,6 +8,10 @@ export const useAgentsStore = defineStore('agents', () => {
   const currentAgent = ref<Agent | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
+
+  // Conversation state
+  const currentSessionId = ref<string | null>(null)
+  const messages = ref<Message[]>([])
 
   async function fetchAgents(): Promise<void> {
     loading.value = true
@@ -88,15 +92,34 @@ export const useAgentsStore = defineStore('agents', () => {
     }
   }
 
+  function setCurrentSession(sessionId: string | null) {
+    currentSessionId.value = sessionId
+    messages.value = []
+  }
+
+  function addMessage(message: Message) {
+    messages.value.push(message)
+  }
+
+  function clearSession() {
+    currentSessionId.value = null
+    messages.value = []
+  }
+
   return {
     agents,
     currentAgent,
     loading,
     error,
+    currentSessionId,
+    messages,
     fetchAgents,
     fetchAgent,
     createAgent,
     updateAgent,
-    deleteAgent
+    deleteAgent,
+    setCurrentSession,
+    addMessage,
+    clearSession
   }
 })
