@@ -44,6 +44,10 @@ const currentController = ref<AbortController | null>(null)
 // Deduplication for events
 const seenEvents = new Set<string>()
 
+// Collapsible state
+const scheduledTasksExpanded = ref(true)
+const configExpanded = ref(true)
+
 // Message for chat-like UI
 interface Message {
   id: string
@@ -401,23 +405,32 @@ function handleEdit() {
     <!-- Scheduled Tasks Section -->
     <Card title="Scheduled Tasks" :padding="false">
       <div class="p-4">
-        <div v-if="agentScheduledTasks.length === 0" class="text-center py-4 text-gray-500">
-          No scheduled tasks for this agent
-        </div>
-        <div v-else class="space-y-2">
-          <div v-for="task in agentScheduledTasks" :key="task.id" class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-            <div>
-              <p class="font-medium text-gray-900">{{ task.name }}</p>
-              <p class="text-sm text-gray-500">{{ formatScheduleBrief(task) }}</p>
-            </div>
-            <div class="flex gap-2">
-              <Button variant="primary" size="sm" @click="triggerTask(task.id)">Run Now</Button>
-              <Button variant="danger" size="sm" @click="deleteTask(task.id)">Delete</Button>
+        <button
+          @click="scheduledTasksExpanded = !scheduledTasksExpanded"
+          class="w-full flex items-center justify-between text-sm text-gray-600 hover:bg-gray-50 -mx-4 -mt-4 px-4 py-2"
+        >
+          <span>Scheduled Tasks</span>
+          <span>{{ scheduledTasksExpanded ? '收起' : '展开' }}</span>
+        </button>
+        <div v-show="scheduledTasksExpanded">
+          <div v-if="agentScheduledTasks.length === 0" class="text-center py-4 text-gray-500">
+            No scheduled tasks for this agent
+          </div>
+          <div v-else class="space-y-2">
+            <div v-for="task in agentScheduledTasks" :key="task.id" class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              <div>
+                <p class="font-medium text-gray-900">{{ task.name }}</p>
+                <p class="text-sm text-gray-500">{{ formatScheduleBrief(task) }}</p>
+              </div>
+              <div class="flex gap-2">
+                <Button variant="primary" size="sm" @click="triggerTask(task.id)">Run Now</Button>
+                <Button variant="danger" size="sm" @click="deleteTask(task.id)">Delete</Button>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="mt-4">
-          <Button variant="secondary" size="sm" @click="openScheduleModal">Create Scheduled Task</Button>
+          <div class="mt-4">
+            <Button variant="secondary" size="sm" @click="openScheduleModal">Create Scheduled Task</Button>
+          </div>
         </div>
       </div>
     </Card>
@@ -449,22 +462,33 @@ function handleEdit() {
           </div>
 
           <div class="pt-4 border-t border-gray-200">
-            <p class="text-sm font-medium text-gray-500">Backstory</p>
-            <p class="text-gray-900 mt-1">{{ agent.backstory || 'Not specified' }}</p>
-          </div>
+            <button
+              @click="configExpanded = !configExpanded"
+              class="w-full flex items-center justify-between text-sm text-gray-600 hover:bg-gray-50 -mx-4 -mt-4 px-4 py-2"
+            >
+              <span>Configuration</span>
+              <span>{{ configExpanded ? '收起' : '展开' }}</span>
+            </button>
+            <div v-show="configExpanded">
+              <div class="pt-4 border-t border-gray-200">
+                <p class="text-sm font-medium text-gray-500">Backstory</p>
+                <p class="text-gray-900 mt-1">{{ agent.backstory || 'Not specified' }}</p>
+              </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-200">
-            <div>
-              <p class="text-sm font-medium text-gray-500">Text Model</p>
-              <p class="text-gray-900">{{ textModelName }}</p>
-            </div>
-            <div>
-              <p class="text-sm font-medium text-gray-500">Image Model</p>
-              <p class="text-gray-900">{{ imageModelName }}</p>
-            </div>
-            <div>
-              <p class="text-sm font-medium text-gray-500">Video Model</p>
-              <p class="text-gray-900">{{ videoModelName }}</p>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-200">
+                <div>
+                  <p class="text-sm font-medium text-gray-500">Text Model</p>
+                  <p class="text-gray-900">{{ textModelName }}</p>
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-gray-500">Image Model</p>
+                  <p class="text-gray-900">{{ imageModelName }}</p>
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-gray-500">Video Model</p>
+                  <p class="text-gray-900">{{ videoModelName }}</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
