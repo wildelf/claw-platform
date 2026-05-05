@@ -15,7 +15,6 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
-        // Disable buffering for SSE
         configure: (proxy) => {
           proxy.on('proxyRes', (proxyRes) => {
             delete proxyRes.headers['x-accel-buffering']
@@ -23,5 +22,10 @@ export default defineConfig({
         }
       }
     }
+  },
+  test: {
+    environment: 'happy-dom',
+    globals: true,
+    include: ['src/**/*.{test,spec}.{js,ts}'],
   }
 })
