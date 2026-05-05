@@ -135,6 +135,7 @@ class RunAgentRequest(BaseModel):
     task: str
     images: list[str] = Field(default_factory=list, description="Base64 encoded images")
     model_config_id: str | None = Field(default=None, description="临时覆盖默认模型")
+    session_id: str | None = Field(default=None, description="会话ID，用于多轮对话继续")
 
 
 @router.post("/{agent_id}/run")
@@ -148,6 +149,7 @@ async def run_agent(
     Executes the agent using deepagents and streams results.
     """
     from app.deepagents.wrapper import DeepAgentsRunner
+    from langgraph.checkpoint.memory import MemorySaver
 
     service = AgentService(storage)
     agent = await service.get(agent_id)
@@ -161,6 +163,11 @@ async def run_agent(
             raise HTTPException(status_code=400, detail="Model config not found")
 
     runner = DeepAgentsRunner(agent, storage, override_model_config_id=request.model_config_id)
+
+    # Set checkpointer if session_id provided
+    if request.session_id:
+        runner.set_checkpointer(MemorySaver(), request.session_id)
+
     try:
         await runner.create()
     except ValueError as e:
@@ -194,7 +201,7 @@ async def run_agent(
             return results
 
         try:
-            yield f"data: {json.dumps({'type': 'start', 'task': task, 'model': model_name})}\n\n"
+            yield f"data: {json.dumps({'type': 'start', 'task': task, 'model': model_name, 'session_id': request.session_id})}\n\n"
             for event in await run_with_cancel_check(runner, task, request.images):
                 # Handle the new event dict format
                 event_type = event.get("type", "content")
