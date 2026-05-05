@@ -57,6 +57,13 @@ class DeepAgentsRunner:
         self._system_prompt_override = system_prompt_override
         self._skill_event_queue: asyncio.Queue[dict] | None = None
         self._override_model_config_id = override_model_config_id
+        self._checkpointer = None  # Will be set via set_checkpointer()
+        self._thread_id = None
+
+    def set_checkpointer(self, checkpointer, thread_id: str):
+        """Set checkpointer and thread_id for multi-turn conversations."""
+        self._checkpointer = checkpointer
+        self._thread_id = thread_id
 
     async def create(self):
         """Create deepagents runner instance."""
@@ -103,10 +110,14 @@ class DeepAgentsRunner:
         skill_middleware = SkillEventMiddleware(
             backend=backend,
             sources=skill_sources if skill_sources else [],
+            agent=self.agent,
+            storage=self.storage,
         )
 
         # 8. Create deep_agent with middleware instead of skills parameter
         #    (skills parameter triggers built-in SkillsMiddleware, we use our own)
+        from langgraph.checkpoint.memory import MemorySaver
+
         self._runner = create_deep_agent(
             model=self._model,
             tools=tools if tools else None,
@@ -114,6 +125,7 @@ class DeepAgentsRunner:
             skills=None,
             middleware=[skill_middleware],
             backend=backend,
+            checkpointer=MemorySaver() if self._checkpointer else None,
         )
         self._backend = backend
 
@@ -195,6 +207,8 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
             skill_middleware = SkillEventMiddleware(
                 backend=backend,
                 sources=skill_sources if skill_sources else [],
+                agent=self.agent,
+                storage=self.storage,
             )
             self._runner = create_deep_agent(
                 model=self._model,
@@ -215,6 +229,8 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
             skill_middleware = SkillEventMiddleware(
                 backend=backend,
                 sources=skill_sources if skill_sources else [],
+                agent=self.agent,
+                storage=self.storage,
             )
             # Re-load tools and inject ImageGenerationTool on re-creation
             tools = await self._load_tools()
@@ -237,7 +253,10 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
         # - "updates": for node/task updates
         modes = ["custom", "messages", "updates"]
 
-        async for chunk in self._runner.astream(input_data, stream_mode=modes):
+        # Build config with thread_id for checkpointer
+        config = {"configurable": {"thread_id": self._thread_id}} if self._thread_id else {}
+
+        async for chunk in self._runner.astream(input_data, config=config, stream_mode=modes):
             # Handle tuple format when multiple modes are enabled: (mode, data)
             if isinstance(chunk, tuple) and len(chunk) == 2:
                 mode, data = chunk
