@@ -215,7 +215,9 @@ export function useSkillWorkbench() {
             } else if (data.type === 'start') {
               appendOutput('Starting skill generation...\n')
             } else if (data.type === 'file') {
-              currentFile = data.path || ''
+              if (data.filename && data.content) {
+                generatedFiles.value[data.filename] = data.content
+              }
             }
           } catch (e) {}
         }

@@ -11,6 +11,17 @@ export interface Tool {
   type?: 'CUSTOM' | 'MCP' | 'BUILTIN'
   config?: Record<string, any>
   allowed_tools?: string[]
+  // MCP-specific fields
+  server_name?: string
+  mcp_config?: {
+    endpoint: string
+    method: string
+    auth: { type: string; token?: string; header_name: string }
+    headers: Record<string, string>
+    request_template?: string
+    response_template?: string
+  }
+  args?: Array<{ name: string; position: string; required: boolean; arg_type: string }>
 }
 
 // Built-in/local tools that are not persisted but can be enabled for agents

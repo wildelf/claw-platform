@@ -105,6 +105,19 @@ function toggleBuiltInTool(toolName: string) {
 function isBuiltInToolSelected(toolName: string) {
   return form.value.enabled_builtin_tools.includes(toolName)
 }
+
+function toggleTool(toolId: string) {
+  const idx = form.value.tool_ids.indexOf(toolId)
+  if (idx === -1) {
+    form.value.tool_ids.push(toolId)
+  } else {
+    form.value.tool_ids.splice(idx, 1)
+  }
+}
+
+function isToolSelected(toolId: string) {
+  return form.value.tool_ids.includes(toolId)
+}
 </script>
 
 <template>
@@ -211,6 +224,33 @@ function isBuiltInToolSelected(toolName: string) {
                 <span class="font-medium">{{ tool.name }}</span>
                 <p class="text-gray-500 text-sm">{{ tool.description }}</p>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Registered MCP Tools</label>
+          <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded p-3">
+            <div
+              v-for="tool in toolsStore.tools.filter(t => t.type === 'MCP')"
+              :key="tool.id"
+              @click="toggleTool(tool.id)"
+              class="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-50"
+              :class="isToolSelected(tool.id) ? 'bg-blue-50' : ''"
+            >
+              <input
+                type="checkbox"
+                :checked="isToolSelected(tool.id)"
+                class="w-4 h-4"
+                @click.stop
+              />
+              <div>
+                <span class="font-medium">{{ tool.name }}</span>
+                <p class="text-gray-500 text-sm">{{ tool.description || 'MCP tool' }}</p>
+              </div>
+            </div>
+            <div v-if="toolsStore.tools.filter(t => t.type === 'MCP').length === 0" class="text-gray-500 text-sm">
+              No MCP tools registered. Go to Tools to register MCP servers.
             </div>
           </div>
         </div>

@@ -32,10 +32,15 @@ from deepagents.middleware.skills import (
 from deepagents.middleware._utils import append_to_system_message
 from deepagents.middleware.skills import SkillMetadata
 
+from app.deepagents.permission import PermissionController, PermissionResult
+from app.deepagents.exceptions import PermissionDeniedError
+
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
     from deepagents.backends.protocol import BACKEND_TYPES, BackendProtocol
+    from app.domain.agent import Agent
+    from app.infrastructure.storage.base import StorageAdapter
 
 
 class SkillEventMiddleware(BaseSkillsMiddleware):
@@ -46,11 +51,15 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
     - `skill_loaded`: When a skill is successfully loaded
     - `skill_reading`: When the agent reads a skill file via read_file tool
 
+    Also performs permission checks on MCP tool calls.
+
     Example:
         ```python
         middleware = SkillEventMiddleware(
             backend=my_backend,
             sources=["/skills/user/"],
+            agent=agent,
+            storage=storage,
         )
         ```
     """
@@ -61,6 +70,8 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
         backend: BACKEND_TYPES,
         sources: list[str],
         event_handler: Callable[[dict], None] | None = None,
+        agent: "Agent | None" = None,
+        storage: "StorageAdapter | None" = None,
     ) -> None:
         """Initialize the skill event middleware.
 
@@ -69,9 +80,14 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
             sources: List of skill source paths
             event_handler: Optional callback for handling events.
                          If not provided, events are sent via stream_writer.
+            agent: Agent entity for permission checks
+            storage: Storage adapter for permission controller
         """
         super().__init__(backend=backend, sources=sources)
         self._event_handler = event_handler
+        self._agent = agent
+        self._storage = storage
+        self._permission_controller: PermissionController | None = None
 
     def _emit_event(self, runtime: Runtime, event: dict) -> None:
         """Emit an event via stream_writer or event_handler."""
@@ -177,6 +193,19 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
 
         return False, None
 
+    def _is_builtin_tool(self, tool_name: str) -> bool:
+        """Check if tool_name refers to a built-in tool.
+
+        Built-in tools: read_file, write_file, bash, etc.
+        These are always available unless explicitly disabled.
+        """
+        builtin_tools = {
+            "read_file", "write_file", "bash", "shell",
+            "Calculator", "WolframAlpha", "arxiv",
+            "ImageGenerationTool", "ScriptExecutionTool", "WebSearchTool",
+        }
+        return tool_name in builtin_tools
+
     def wrap_tool_call(
         self,
         request: ToolCallRequest,
@@ -205,7 +234,7 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command]],
     ) -> ToolMessage | Command:
-        """Intercept tool calls to emit skill_reading events (async)."""
+        """Intercept tool calls to emit skill_reading events and check permissions (async)."""
         import logging
         import traceback
         logger = logging.getLogger(__name__)
@@ -219,6 +248,15 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
         file_path = tool_input.get("file_path", "")
 
         logger.info(f"awrap_tool_call: tool={tool_name}, file_path={file_path}, has_runtime={request.runtime is not None}")
+
+        # Permission check: verify agent is allowed to call this tool
+        if self._agent and self._storage and not self._is_builtin_tool(tool_name):
+            perm_controller = PermissionController(self._agent, self._storage)
+            result = await perm_controller.is_tool_allowed(tool_name)
+            if not result.allowed:
+                logger.warning(f"Permission denied for tool '{tool_name}': {result.error_message}")
+                from app.deepagents.exceptions import PermissionDeniedError
+                raise PermissionDeniedError(tool_name=tool_name, agent_id=str(self._agent.id))
 
         is_skill, skill_id = self._is_skill_file_access(tool_name, tool_input)
         logger.info(f"awrap_tool_call: is_skill={is_skill}, skill_id={skill_id}")

@@ -18,6 +18,7 @@ from app.domain.tool import Tool, ToolType
 from app.domain.model_config import ModelConfig, ModelModality, ModelProviderType
 from app.domain.feedback import FeedbackEvent, FeedbackRating
 from app.domain.user import User, UserRole
+from app.domain.log import LogEntry, LogActionType
 from app.infrastructure.storage.base import StorageAdapter
 
 
@@ -89,6 +90,10 @@ class ToolModel(Base):
     user_id = Column(String(36), nullable=False)
     created_at = Column(DateTime, nullable=False)
     updated_at = Column(DateTime, nullable=False)
+    # MCP-specific fields
+    server_name = Column(String(100), nullable=True)
+    mcp_config = Column(Text, nullable=True, comment="JSON-encoded MCPConfig")
+    args = Column(Text, default="[]", comment="JSON-encoded list of ToolArg")
 
 
 class ModelConfigModel(Base):
@@ -159,6 +164,28 @@ class ScheduledTaskModel(Base):
     updated_at = Column(DateTime, nullable=False)
 
 
+class LogModel(Base):
+    __tablename__ = "logs"
+    __table_args__ = (
+        Index("ix_logs_agent_id", "agent_id"),
+        Index("ix_logs_session_id", "session_id"),
+        Index("ix_logs_timestamp", "timestamp"),
+    )
+
+    id = Column(String(36), primary_key=True)
+    agent_id = Column(String(36), nullable=False)
+    session_id = Column(String(100), nullable=False)
+    timestamp = Column(DateTime, nullable=False)
+    action_type = Column(String(30), nullable=False)
+    tool_name = Column(String(100), nullable=True)
+    input_json = Column(Text, nullable=True)
+    output_json = Column(Text, nullable=True)
+    decision_context = Column(String(100), nullable=True)
+    error = Column(Text, nullable=True)
+    extra = Column(Text, default="{}")
+    created_at = Column(DateTime, nullable=False)
+
+
 class SQLiteStorage:
     """SQLite storage implementation."""
 
@@ -223,6 +250,24 @@ class SQLiteStorage:
         )
 
     def _to_tool(self, row: ToolModel) -> Tool:
+        from app.domain.tool import ToolArg, MCPAuthConfig, MCPConfig
+        mcp_config = None
+        if row.mcp_config:
+            cfg_dict = json.loads(row.mcp_config)
+            auth_dict = cfg_dict.get("auth", {})
+            auth = MCPAuthConfig(type=auth_dict.get("type", "none"), token=auth_dict.get("token"), header_name=auth_dict.get("header_name", "X-API-Key"))
+            mcp_config = MCPConfig(
+                endpoint=cfg_dict.get("endpoint", ""),
+                method=cfg_dict.get("method", "POST"),
+                auth=auth,
+                headers=cfg_dict.get("headers", {}),
+                request_template=cfg_dict.get("request_template"),
+                response_template=cfg_dict.get("response_template"),
+            )
+        args = []
+        if row.args:
+            for arg_dict in json.loads(row.args):
+                args.append(ToolArg(name=arg_dict["name"], position=arg_dict.get("position", "body"), required=arg_dict.get("required", False), arg_type=arg_dict.get("type", "string")))
         return Tool(
             id=EntityId(row.id),
             name=row.name,
@@ -233,6 +278,9 @@ class SQLiteStorage:
             user_id=EntityId(row.user_id),
             created_at=row.created_at,
             updated_at=row.updated_at,
+            server_name=row.server_name,
+            mcp_config=mcp_config,
+            args=args,
         )
 
     def _to_model_config(self, row: ModelConfigModel) -> ModelConfig:
@@ -467,6 +515,31 @@ class SQLiteStorage:
     # Tool operations
     async def save_tool(self, tool: Tool) -> None:
         async with self.async_session() as session:
+            from sqlalchemy import select
+            # Check if tool already exists
+            result = await session.execute(select(ToolModel).where(ToolModel.id == tool.id))
+            existing = result.scalar_one_or_none()
+
+            mcp_config_json = None
+            if tool.mcp_config:
+                mcp_config_json = json.dumps({
+                    "endpoint": tool.mcp_config.endpoint,
+                    "method": tool.mcp_config.method,
+                    "auth": {
+                        "type": tool.mcp_config.auth.type,
+                        "token": tool.mcp_config.auth.token,
+                        "header_name": tool.mcp_config.auth.header_name,
+                    },
+                    "headers": tool.mcp_config.headers,
+                    "request_template": tool.mcp_config.request_template,
+                    "response_template": tool.mcp_config.response_template,
+                }, ensure_ascii=False)
+
+            args_json = json.dumps([
+                {"name": a.name, "position": a.position, "required": a.required, "type": a.arg_type}
+                for a in tool.args
+            ], ensure_ascii=False)
+
             model = ToolModel(
                 id=tool.id,
                 name=tool.name,
@@ -477,8 +550,16 @@ class SQLiteStorage:
                 user_id=tool.user_id,
                 created_at=tool.created_at,
                 updated_at=tool.updated_at,
+                server_name=tool.server_name,
+                mcp_config=mcp_config_json,
+                args=args_json,
             )
-            session.add(model)
+
+            if existing:
+                for key in ['name', 'description', 'type', 'config', 'allowed_tools', 'updated_at', 'server_name', 'mcp_config', 'args']:
+                    setattr(existing, key, getattr(model, key))
+            else:
+                session.add(model)
             await session.commit()
 
     async def get_tool(self, id: str) -> Optional[Tool]:
@@ -710,3 +791,63 @@ class SQLiteStorage:
             from sqlalchemy import delete
             await session.execute(delete(ScheduledTaskModel).where(ScheduledTaskModel.id == id))
             await session.commit()
+
+    # Log operations
+    def _to_log(self, row: LogModel) -> LogEntry:
+        return LogEntry(
+            id=EntityId(row.id),
+            agent_id=EntityId(row.agent_id),
+            session_id=row.session_id,
+            timestamp=row.timestamp,
+            action_type=LogActionType(row.action_type),
+            tool_name=row.tool_name,
+            input_json=row.input_json,
+            output_json=row.output_json,
+            decision_context=row.decision_context,
+            error=row.error,
+            extra=json.loads(row.extra) if row.extra else {},
+            created_at=row.created_at,
+        )
+
+    async def save_log(self, entry: LogEntry) -> None:
+        async with self.async_session() as session:
+            model = LogModel(
+                id=entry.id,
+                agent_id=entry.agent_id,
+                session_id=entry.session_id,
+                timestamp=entry.timestamp,
+                action_type=entry.action_type,
+                tool_name=entry.tool_name,
+                input_json=entry.input_json,
+                output_json=entry.output_json,
+                decision_context=entry.decision_context,
+                error=entry.error,
+                extra=json.dumps(entry.extra),
+                created_at=datetime.now(timezone.utc),
+            )
+            session.add(model)
+            await session.commit()
+
+    async def query_logs(
+        self,
+        agent_id: str | None = None,
+        session_id: str | None = None,
+        action_type: str | None = None,
+        tool_name: str | None = None,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> List[LogEntry]:
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            query = select(LogModel)
+            if agent_id:
+                query = query.where(LogModel.agent_id == agent_id)
+            if session_id:
+                query = query.where(LogModel.session_id == session_id)
+            if action_type:
+                query = query.where(LogModel.action_type == action_type)
+            if tool_name:
+                query = query.where(LogModel.tool_name == tool_name)
+            query = query.order_by(LogModel.timestamp.desc()).offset(offset).limit(limit)
+            result = await session.execute(query)
+            return [self._to_log(row) for row in result.scalars().all()]

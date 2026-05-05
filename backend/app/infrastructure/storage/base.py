@@ -10,6 +10,7 @@ from app.domain.tool import Tool
 from app.domain.model_config import ModelConfig
 from app.domain.feedback import FeedbackEvent
 from app.domain.user import User
+from app.domain.log import LogEntry
 
 
 class StorageAdapter(Protocol):
@@ -63,3 +64,15 @@ class StorageAdapter(Protocol):
     async def get_scheduled_task(self, id: str) -> Optional[ScheduledTask]: ...
     async def list_scheduled_tasks(self, user_id: EntityId, offset: int = 0, limit: int = 100) -> List[ScheduledTask]: ...
     async def delete_scheduled_task(self, id: str) -> None: ...
+
+    # Log operations
+    async def save_log(self, entry: LogEntry) -> None: ...
+    async def query_logs(
+        self,
+        agent_id: str | None = None,
+        session_id: str | None = None,
+        action_type: str | None = None,
+        tool_name: str | None = None,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> List[LogEntry]: ...

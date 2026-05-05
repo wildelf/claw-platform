@@ -6,10 +6,32 @@ from fastapi import APIRouter, HTTPException
 
 from app.api.deps import Storage, UserId
 from app.application.tool_service import ToolService
-from app.domain.tool import Tool, ToolType
+from app.domain.tool import Tool, ToolType, ToolArg, MCPAuthConfig, MCPConfig
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/tools", tags=["tools"])
+
+
+class AuthConfigSchema(BaseModel):
+    type: str = "none"
+    token: Optional[str] = None
+    header_name: str = "X-API-Key"
+
+
+class ArgSchema(BaseModel):
+    name: str
+    position: str = "body"
+    required: bool = False
+    arg_type: str = "string"
+
+
+class MCPConfigSchema(BaseModel):
+    endpoint: str
+    method: str = "POST"
+    auth: AuthConfigSchema = Field(default_factory=AuthConfigSchema)
+    headers: dict = {}
+    request_template: Optional[str] = None
+    response_template: Optional[str] = None
 
 
 class CreateToolRequest(BaseModel):
@@ -18,13 +40,21 @@ class CreateToolRequest(BaseModel):
     type: ToolType = ToolType.CUSTOM
     config: dict = Field(default_factory=dict)
     allowed_tools: List[str] = Field(default_factory=list)
+    # MCP fields
+    server_name: Optional[str] = Field(default=None, max_length=100)
+    mcp_config: Optional[MCPConfigSchema] = None
+    args: List[ArgSchema] = Field(default_factory=list)
 
 
 class UpdateToolRequest(BaseModel):
     name: Optional[str] = Field(max_length=100, default=None)
     description: Optional[str] = Field(max_length=500, default=None)
+    type: Optional[ToolType] = None
     config: Optional[dict] = Field(default=None)
-    allowed_tools: Optional[List[str]] = Field(default=None)
+    allowed_tools: Optional[List[str]] = None
+    server_name: Optional[str] = Field(default=None, max_length=100)
+    mcp_config: Optional[MCPConfigSchema] = None
+    args: Optional[List[ArgSchema]] = None
 
 
 @router.post("", response_model=Tool)
@@ -34,6 +64,21 @@ async def create_tool(
     user_id: UserId,
 ) -> Tool:
     """Register a new tool."""
+    mcp_config = None
+    if request.mcp_config:
+        mcp_config = MCPConfig(
+            endpoint=request.mcp_config.endpoint,
+            method=request.mcp_config.method,
+            auth=MCPAuthConfig(
+                type=request.mcp_config.auth.type,
+                token=request.mcp_config.auth.token,
+                header_name=request.mcp_config.auth.header_name,
+            ),
+            headers=request.mcp_config.headers or {},
+            request_template=request.mcp_config.request_template,
+            response_template=request.mcp_config.response_template,
+        )
+    tool_args = [ToolArg(name=a.name, position=a.position, required=a.required, arg_type=a.arg_type) for a in request.args]
     tool = Tool(
         name=request.name,
         description=request.description,
@@ -41,6 +86,9 @@ async def create_tool(
         config=request.config,
         allowed_tools=request.allowed_tools,
         user_id=user_id,
+        server_name=request.server_name,
+        mcp_config=mcp_config,
+        args=tool_args,
     )
     service = ToolService(storage)
     return await service.create(tool)
@@ -78,6 +126,26 @@ async def update_tool(
     """Update tool."""
     service = ToolService(storage)
     data = request.model_dump(exclude_unset=True)
+
+    # Convert nested MCP config
+    if 'mcp_config' in data and data['mcp_config']:
+        mc = data['mcp_config']
+        auth_dict = mc.get('auth', {})
+        data['mcp_config'] = MCPConfig(
+            endpoint=mc['endpoint'],
+            method=mc.get('method', 'POST'),
+            auth=MCPAuthConfig(
+                type=auth_dict.get('type', 'none'),
+                token=auth_dict.get('token'),
+                header_name=auth_dict.get('header_name', 'X-API-Key'),
+            ),
+            headers=mc.get('headers', {}),
+            request_template=mc.get('request_template'),
+            response_template=mc.get('response_template'),
+        )
+    if 'args' in data and data['args']:
+        data['args'] = [ToolArg(name=a['name'], position=a.get('position', 'body'), required=a.get('required', False), arg_type=a.get('type', 'string')) for a in data['args']]
+
     tool = await service.update(tool_id, data)
     if not tool:
         raise HTTPException(status_code=404, detail="Tool not found")
