@@ -39,7 +39,7 @@ const videoModelName = computed(() => {
 const running = computed(() => isLoading.value)
 const stopping = ref(false)
 const taskInput = ref('')
-const currentXhr = ref<XMLHttpRequest | null>(null)
+const currentController = ref<AbortController | null>(null)
 
 // Deduplication for events
 const seenEvents = new Set<string>()
@@ -219,69 +219,69 @@ function handleRun() {
   }
   messages.value.push(agentMessage)
 
-  const xhr = new XMLHttpRequest()
-  currentXhr.value = xhr
-  xhr.open('POST', `/api/agents/${agentId.value}/run`, true)
-  xhr.setRequestHeader('Content-Type', 'application/json')
+  const controller = new AbortController()
+  currentController.value = controller
 
-  let lastIndex = 0
-  xhr.onprogress = () => {
-    const newData = xhr.responseText.substring(lastIndex)
-    lastIndex = xhr.responseText.length
+  const response = await fetch(`/api/agents/${agentId.value}/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ task: taskInput.value }),
+    signal: controller.signal,
+  })
 
-    const lines = newData.split('\n')
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        try {
-          const data = JSON.parse(line.slice(6))
-          handleEvent(data, agentMessage)
-        } catch {}
+  if (!response.ok) {
+    const errorText = await response.text()
+    agentMessage.content += `\nError: HTTP ${response.status}`
+    agentMessage.events?.push({ type: 'error', content: `HTTP ${response.status}: ${errorText}` })
+    agentMessage.isComplete = true
+    isLoading.value = false
+    stopping.value = false
+    currentController.value = null
+    taskInput.value = ''
+    return
+  }
+
+  const reader = response.body!.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6))
+            handleEvent(data, agentMessage)
+          } catch {}
+        }
       }
     }
-  }
-
-  xhr.onload = () => {
-    const remaining = xhr.responseText.substring(lastIndex)
-    lastIndex = xhr.responseText.length
-
-    const lines = remaining.split('\n')
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        try {
-          const data = JSON.parse(line.slice(6))
-          handleEvent(data, agentMessage)
-        } catch {}
-      }
-    }
-
-    if (xhr.status >= 400) {
-      agentMessage.content += `\nError: HTTP ${xhr.status}`
-      agentMessage.events?.push({ type: 'error', content: `HTTP ${xhr.status}` })
+  } catch (e) {
+    if ((e as Error).name === 'AbortError') {
+      agentMessage.events?.push({ type: 'cancelled', content: '任务已取消' })
+    } else {
+      agentMessage.content += `\nError: Network error`
+      agentMessage.events?.push({ type: 'error', content: 'Network error' })
     }
     agentMessage.isComplete = true
     isLoading.value = false
     stopping.value = false
-    currentXhr.value = null
+    currentController.value = null
+    taskInput.value = ''
+    return
   }
 
-  xhr.onerror = () => {
-    agentMessage.content += `\nError: Network error`
-    agentMessage.events?.push({ type: 'error', content: 'Network error' })
-    agentMessage.isComplete = true
-    isLoading.value = false
-    stopping.value = false
-    currentXhr.value = null
-  }
-
-  xhr.onabort = () => {
-    agentMessage.events?.push({ type: 'cancelled', content: '任务已取消' })
-    agentMessage.isComplete = true
-    isLoading.value = false
-    stopping.value = false
-    currentXhr.value = null
-  }
-
-  xhr.send(JSON.stringify({ task: taskInput.value }))
+  agentMessage.isComplete = true
+  isLoading.value = false
+  stopping.value = false
+  currentController.value = null
   taskInput.value = ''
 }
 
@@ -289,9 +289,9 @@ async function stopAgent() {
   if (!running.value) return
   stopping.value = true
 
-  // Abort the current XHR
-  if (currentXhr.value) {
-    currentXhr.value.abort()
+  // Abort the current fetch request
+  if (currentController.value) {
+    currentController.value.abort()
   }
 
   // Call the stop API

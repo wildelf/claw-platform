@@ -135,38 +135,61 @@ function handleRun() {
   clearOutput()
   uploadedImages.value = []
 
-  const xhr = new XMLHttpRequest()
-  xhr.open('POST', `/api/agents/${agentId.value}/run`, true)
-  xhr.setRequestHeader('Content-Type', 'application/json')
+  const controller = new AbortController()
 
-  let buffer = ''
-  xhr.onprogress = () => {
-    buffer += xhr.responseText.substring(buffer.length)
-    const lines = buffer.split('\n')
-    buffer = lines.pop() || ''
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        try {
-          const data = JSON.parse(line.slice(6))
-          handleEvent(data)
-        } catch {}
-      }
-    }
-  }
-
-  xhr.onload = () => {
-    if (xhr.status >= 400) {
-      appendOutput(`\nError: HTTP ${xhr.status}`)
+  fetch(`/api/agents/${agentId.value}/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ task: taskInput.value, images: uploadedImages.value, model_config_id: selectedModelId.value, session_id: currentSessionId.value }),
+    signal: controller.signal,
+  }).then(async (response) => {
+    if (!response.ok) {
+      const errorText = await response.text()
+      appendOutput(`\nError: HTTP ${response.status}`)
       events.value.push({
         type: 'error',
-        content: `HTTP ${xhr.status}`,
+        content: `HTTP ${response.status}: ${errorText}`,
         timestamp: new Date()
       })
+      running.value = false
+      return
     }
-    running.value = false
-  }
 
-  xhr.onerror = () => {
+    const reader = response.body!.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              handleEvent(data)
+            } catch {}
+          }
+        }
+      }
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') {
+        appendOutput(`\nError: Network error`)
+        events.value.push({
+          type: 'error',
+          content: 'Network error',
+          timestamp: new Date()
+        })
+      }
+    }
+
+    running.value = false
+  }).catch(() => {
     appendOutput(`\nError: Network error`)
     events.value.push({
       type: 'error',
@@ -174,9 +197,10 @@ function handleRun() {
       timestamp: new Date()
     })
     running.value = false
-  }
+  })
 
-  xhr.send(JSON.stringify({ task: taskInput.value, images: uploadedImages.value, model_config_id: selectedModelId.value, session_id: currentSessionId.value }))
+  // Store controller for potential cancellation
+  ;(window as any).__agentAbortController = controller
 }
 
 function handleEvent(data: any) {
