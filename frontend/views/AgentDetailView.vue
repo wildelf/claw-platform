@@ -22,6 +22,15 @@ const outputRef = ref<HTMLPreElement | null>(null)
 const uploadedImages = ref<string[]>([])
 const imageInputRef = ref<HTMLInputElement | null>(null)
 
+// Conversation state
+const currentSessionId = ref<string | null>(null)
+const messages = ref<Array<{
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: Date
+}>>([])
+
 // Event state
 const currentEvent = ref<{
   type: string
@@ -114,6 +123,12 @@ function clearOutput() {
   currentEvent.value = null
 }
 
+function clearSession() {
+  currentSessionId.value = null
+  messages.value = []
+  clearOutput()
+}
+
 function handleRun() {
   if (!taskInput.value.trim()) return
   running.value = true
@@ -161,7 +176,7 @@ function handleRun() {
     running.value = false
   }
 
-  xhr.send(JSON.stringify({ task: taskInput.value, images: uploadedImages.value, model_config_id: selectedModelId.value }))
+  xhr.send(JSON.stringify({ task: taskInput.value, images: uploadedImages.value, model_config_id: selectedModelId.value, session_id: currentSessionId.value }))
 }
 
 function handleEvent(data: any) {
@@ -184,9 +199,19 @@ function handleEvent(data: any) {
       break
 
     case 'start':
-      // Clear previous images on new run
+      // Capture session_id for continued conversation
+      if (data.session_id) {
+        currentSessionId.value = data.session_id
+      }
       generatedImages.value = []
-      events.value.push({ ...event, content: `开始执行任务: ${data.task}`, model: data.model })
+      events.value.push({ ...event, content: `会话: ${data.task}`, model: data.model })
+      // Add user message to local history
+      messages.value.push({
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: data.task,
+        timestamp: new Date(),
+      })
       break
 
     case 'preparing':
@@ -251,6 +276,14 @@ function handleEvent(data: any) {
       currentEvent.value = null
       appendOutput('\n\n--- 完成 ---\n')
       events.value.push({ ...event, content: '任务完成' })
+      // Add assistant response to message history
+      const responseContent = outputRef.value?.textContent || ''
+      messages.value.push({
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: responseContent,
+        timestamp: new Date(),
+      })
       break
 
     case 'error':
@@ -322,6 +355,9 @@ function handleKeydown(e: KeyboardEvent) {
       <h1 class="text-2xl font-bold text-gray-900">Agent Details</h1>
       <div class="flex gap-2">
         <Button variant="primary" @click="handleRun" :loading="running">Run Agent</Button>
+        <Button v-if="currentSessionId" variant="secondary" @click="clearSession">
+          新对话
+        </Button>
         <Button variant="secondary" @click="handleEdit">Edit</Button>
       </div>
     </div>
@@ -488,6 +524,21 @@ function handleKeydown(e: KeyboardEvent) {
               v-if="thinkingExpanded"
               class="px-4 py-2 text-xs text-gray-500 bg-gray-50 overflow-x-auto max-h-48"
             >{{ thinkingContent }}</pre>
+          </div>
+
+          <!-- Conversation History -->
+          <div v-if="messages.length > 0" class="mb-4 space-y-3">
+            <h3 class="text-sm font-medium text-gray-700">对话历史</h3>
+            <div v-for="msg in messages" :key="msg.id"
+                 :class="['p-3 rounded-lg', msg.role === 'user' ? 'bg-blue-50' : 'bg-gray-50']">
+              <div class="flex items-center gap-2 mb-1">
+                <span :class="['text-xs font-medium', msg.role === 'user' ? 'text-blue-600' : 'text-gray-600']">
+                  {{ msg.role === 'user' ? '用户' : '助手' }}
+                </span>
+                <span class="text-xs text-gray-400">{{ new Date(msg.timestamp).toLocaleTimeString() }}</span>
+              </div>
+              <p class="text-sm text-gray-800 whitespace-pre-wrap">{{ msg.content }}</p>
+            </div>
           </div>
 
           <!-- Output -->
