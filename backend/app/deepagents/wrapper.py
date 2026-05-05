@@ -186,12 +186,6 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
         # skill events are now emitted by SkillEventMiddleware via stream
         # (skill_loading / skill_loaded / skill_reading flow through the "custom" stream mode)
 
-        # Emit thinking event
-        yield {
-            "type": "thinking",
-            "message": "AI 正在思考...",
-        }
-
         # Detect image input and resolve correct model
         has_images = bool(images)
         self._model = await self._resolve_model(input_data, has_images)
