@@ -5,7 +5,7 @@ import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Input from '@/components/ui/Input.vue'
-import { useAgentsStore } from '@/stores/agents'
+import { useAgentsStore, getStoredSessionId, setStoredSessionId } from '@/stores/agents'
 import { useModelsStore } from '@/stores/models'
 import { useScheduledTasksStore } from '@/stores/scheduled_tasks'
 
@@ -65,6 +65,7 @@ interface Message {
 
 const messages = ref<Message[]>([])
 const isLoading = ref(false)
+const currentSessionId = ref<string | null>(null)
 
 // Schedule modal state
 const showScheduleModal = ref(false)
@@ -133,6 +134,8 @@ function getEventLabel(type: string): string {
 function clearOutput() {
   messages.value = []
   seenEvents.clear()
+  currentSessionId.value = null
+  localStorage.removeItem(`agent_session_${agentId.value}`)
 }
 
 function openScheduleModal() {
@@ -222,10 +225,18 @@ function handleRun() {
   const controller = new AbortController()
   currentController.value = controller
 
+  // Restore or create session_id for persistence across turns
+  const storedSessionId = getStoredSessionId(agentId.value)
+  const sessionId = storedSessionId || crypto.randomUUID()
+  if (!storedSessionId) {
+    setStoredSessionId(agentId.value, sessionId)
+  }
+  currentSessionId.value = sessionId
+
   const response = await fetch(`/api/agents/${agentId.value}/run`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ task: taskInput.value }),
+    body: JSON.stringify({ task: taskInput.value, session_id: sessionId }),
     signal: controller.signal,
   })
 

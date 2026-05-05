@@ -3,6 +3,14 @@ import { ref } from 'vue'
 import type { Agent } from '@/types'
 import { agentsApi } from '@/api/agents'
 
+export function getStoredSessionId(agentId: string): string | null {
+  return localStorage.getItem(`agent_session_${agentId}`)
+}
+
+export function setStoredSessionId(agentId: string, sessionId: string) {
+  localStorage.setItem(`agent_session_${agentId}`, sessionId)
+}
+
 export const useAgentsStore = defineStore('agents', () => {
   const agents = ref<Agent[]>([])
   const currentAgent = ref<Agent | null>(null)
