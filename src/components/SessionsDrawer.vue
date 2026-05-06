@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useSessionsStore } from '@/stores/sessions'
-import IconButton from '@/components/ui/IconButton.vue'
 import Input from '@/components/ui/Input.vue'
 
 const props = defineProps<{
@@ -77,7 +76,7 @@ async function handleDelete(id: string) {
     <div :class="['drawer', { open }]">
       <div class="drawer-header">
         <span class="drawer-title">会话历史</span>
-        <IconButton icon="close" @click="emit('close')" />
+        <button class="close-btn" @click="emit('close')">✕</button>
       </div>
 
       <div class="drawer-content">
@@ -107,16 +106,8 @@ async function handleDelete(id: string) {
                 <span class="session-time">{{ formatTime(session.updated_at) }}</span>
               </div>
               <div class="session-actions">
-                <IconButton
-                  icon="edit"
-                  size="small"
-                  @click.stop="startEdit(session.id, session.name)"
-                />
-                <IconButton
-                  icon="delete"
-                  size="small"
-                  @click.stop="handleDelete(session.id)"
-                />
+                <button class="action-btn" @click.stop="startEdit(session.id, session.name)">✏️</button>
+                <button class="action-btn" @click.stop="handleDelete(session.id)">🗑️</button>
               </div>
             </template>
           </div>
@@ -167,6 +158,19 @@ async function handleDelete(id: string) {
 
 .drawer-title {
   font-weight: 600;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--color-text-muted);
+}
+
+.close-btn:hover {
+  color: var(--color-text);
 }
 
 .drawer-content {
@@ -230,6 +234,14 @@ async function handleDelete(id: string) {
   gap: 4px;
   opacity: 0;
   transition: opacity 0.15s;
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  font-size: 14px;
 }
 
 .edit-input {
