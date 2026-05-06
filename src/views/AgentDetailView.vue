@@ -214,7 +214,7 @@ async function deleteTask(taskId: string) {
   }
 }
 
-function handleRun() {
+async function handleRun() {
   if (!taskInput.value.trim() || isLoading.value) return
   isLoading.value = true
   stopping.value = false
