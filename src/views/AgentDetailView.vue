@@ -5,6 +5,7 @@ import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Input from '@/components/ui/Input.vue'
+import SessionsDrawer from '@/components/SessionsDrawer.vue'
 import { useAgentsStore, getStoredSessionId, setStoredSessionId } from '@/stores/agents'
 import { useModelsStore } from '@/stores/models'
 import { useScheduledTasksStore } from '@/stores/scheduled_tasks'
@@ -70,6 +71,7 @@ interface Message {
 const messages = ref<Message[]>([])
 const isLoading = ref(false)
 const currentSessionId = ref<string | null>(null)
+const drawerOpen = ref(false)
 
 // Schedule modal state
 const showScheduleModal = ref(false)
@@ -140,6 +142,17 @@ function clearOutput() {
   seenEvents.clear()
   currentSessionId.value = null
   localStorage.removeItem(`agent_session_${agentId.value}`)
+}
+
+function openSessionsDrawer() {
+  drawerOpen.value = true
+}
+
+function handleSessionSelect(sessionId: string) {
+  currentSessionId.value = sessionId
+  setStoredSessionId(agentId.value, sessionId)
+  messages.value = []
+  seenEvents.clear()
 }
 
 function openScheduleModal() {
@@ -399,6 +412,7 @@ function handleEdit() {
         <Button variant="primary" @click="handleRun" :loading="running">Run Agent</Button>
         <Button variant="secondary" @click="openScheduleModal">Schedule</Button>
         <Button variant="secondary" @click="handleEdit">Edit</Button>
+        <Button variant="ghost" @click="openSessionsDrawer" title="会话历史">历史</Button>
       </div>
     </div>
 
@@ -650,4 +664,10 @@ function handleEdit() {
       </div>
     </template>
   </div>
+  <SessionsDrawer
+    :open="drawerOpen"
+    :agent-id="agentId"
+    @close="drawerOpen = false"
+    @select="handleSessionSelect"
+  />
 </template>
