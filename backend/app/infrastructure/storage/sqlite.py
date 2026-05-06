@@ -19,6 +19,7 @@ from app.domain.model_config import ModelConfig, ModelModality, ModelProviderTyp
 from app.domain.feedback import FeedbackEvent, FeedbackRating
 from app.domain.user import User, UserRole
 from app.domain.log import LogEntry, LogActionType
+from app.domain.session import Session
 from app.infrastructure.storage.base import StorageAdapter
 
 
@@ -184,6 +185,20 @@ class LogModel(Base):
     error = Column(Text, nullable=True)
     extra = Column(Text, default="{}")
     created_at = Column(DateTime, nullable=False)
+
+
+class SessionModel(Base):
+    __tablename__ = "sessions"
+    __table_args__ = (
+        Index("ix_sessions_updated_at", "updated_at"),
+    )
+
+    id = Column(String(36), primary_key=True)
+    name = Column(String(255), default="")
+    agent_id = Column(String(36), nullable=False)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+    message_count = Column(Integer, default=0)
 
 
 class SQLiteStorage:
@@ -851,3 +866,62 @@ class SQLiteStorage:
             query = query.order_by(LogModel.timestamp.desc()).offset(offset).limit(limit)
             result = await session.execute(query)
             return [self._to_log(row) for row in result.scalars().all()]
+
+    # Session operations
+    def _to_session(self, row: SessionModel) -> Session:
+        return Session(
+            id=EntityId(row.id),
+            name=row.name,
+            agent_id=EntityId(row.agent_id),
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+            message_count=row.message_count,
+        )
+
+    async def save_session(self, session: Session) -> None:
+        async with self.async_session() as sess:
+            from sqlalchemy import select
+            result = await sess.execute(
+                select(SessionModel).where(SessionModel.id == session.id)
+            )
+            existing = result.scalar_one_or_none()
+
+            model = SessionModel(
+                id=session.id,
+                name=session.name,
+                agent_id=session.agent_id,
+                created_at=session.created_at,
+                updated_at=session.updated_at,
+                message_count=session.message_count,
+            )
+
+            if existing:
+                for key in ['name', 'updated_at', 'message_count']:
+                    setattr(existing, key, getattr(model, key))
+            else:
+                sess.add(model)
+            await sess.commit()
+
+    async def get_session(self, id: str) -> Optional[Session]:
+        async with self.async_session() as sess:
+            from sqlalchemy import select
+            result = await sess.execute(select(SessionModel).where(SessionModel.id == id))
+            row = result.scalar_one_or_none()
+            return self._to_session(row) if row else None
+
+    async def list_sessions(self, offset: int = 0, limit: int = 100) -> List[Session]:
+        async with self.async_session() as sess:
+            from sqlalchemy import select
+            result = await sess.execute(
+                select(SessionModel)
+                .order_by(SessionModel.updated_at.desc())
+                .offset(offset)
+                .limit(limit)
+            )
+            return [self._to_session(row) for row in result.scalars().all()]
+
+    async def delete_session(self, id: str) -> None:
+        async with self.async_session() as sess:
+            from sqlalchemy import delete
+            await sess.execute(delete(SessionModel).where(SessionModel.id == id))
+            await sess.commit()
