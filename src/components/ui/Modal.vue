@@ -21,13 +21,13 @@ const emit = defineEmits<{
           class="fixed inset-0 bg-black bg-opacity-50"
           @click="emit('close')"
         />
-        <div class="relative bg-white rounded-lg shadow-xl max-w-lg w-full mx-4">
-          <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-900">
+        <div class="relative bg-[var(--bg-primary)] rounded-lg shadow-xl max-w-lg w-full mx-4">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)]">
+            <h3 class="text-lg font-semibold text-[var(--text-primary)]">
               {{ title || '' }}
             </h3>
             <button
-              class="text-gray-400 hover:text-gray-600 transition-colors"
+              class="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
               @click="emit('close')"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -38,7 +38,7 @@ const emit = defineEmits<{
           <div class="p-4">
             <slot />
           </div>
-          <div v-if="$slots.footer" class="px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+          <div v-if="$slots.footer" class="px-4 py-3 border-t border-[var(--border-color)] bg-[var(--bg-secondary)] rounded-b-lg">
             <slot name="footer" />
           </div>
         </div>
