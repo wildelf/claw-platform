@@ -20,6 +20,7 @@ from app.domain.feedback import FeedbackEvent, FeedbackRating
 from app.domain.user import User, UserRole
 from app.domain.log import LogEntry, LogActionType
 from app.domain.session import Session
+from app.domain.conversation_memory import ConversationMemory
 from app.infrastructure.storage.base import StorageAdapter
 
 
@@ -199,6 +200,20 @@ class SessionModel(Base):
     created_at = Column(DateTime, nullable=False)
     updated_at = Column(DateTime, nullable=False)
     message_count = Column(Integer, default=0)
+
+
+class ConversationMemoryModel(Base):
+    __tablename__ = "conversation_memories"
+    __table_args__ = (
+        Index("ix_conversation_memories_agent_created", "agent_id", "created_at"),
+    )
+
+    id = Column(String(36), primary_key=True)
+    agent_id = Column(String(36), nullable=False)
+    user_input = Column(Text, nullable=False)
+    agent_output = Column(Text, nullable=False)
+    summary = Column(Text, default="")
+    created_at = Column(DateTime, nullable=False)
 
 
 class SQLiteStorage:
@@ -925,3 +940,58 @@ class SQLiteStorage:
             from sqlalchemy import delete
             await sess.execute(delete(SessionModel).where(SessionModel.id == id))
             await sess.commit()
+
+    # ConversationMemory operations
+    def _to_conversation_memory(self, row: ConversationMemoryModel) -> ConversationMemory:
+        return ConversationMemory(
+            id=EntityId(row.id),
+            agent_id=EntityId(row.agent_id),
+            user_input=row.user_input,
+            agent_output=row.agent_output,
+            summary=row.summary,
+            created_at=row.created_at,
+        )
+
+    async def save_conversation_memory(self, memory: ConversationMemory) -> None:
+        async with self.async_session() as session:
+            model = ConversationMemoryModel(
+                id=memory.id,
+                agent_id=memory.agent_id,
+                user_input=memory.user_input,
+                agent_output=memory.agent_output,
+                summary=memory.summary,
+                created_at=memory.created_at,
+            )
+            session.add(model)
+            await session.commit()
+
+    async def update_conversation_memory_summary(self, id: str, summary: str) -> None:
+        async with self.async_session() as session:
+            from sqlalchemy import update
+            await session.execute(
+                update(ConversationMemoryModel).where(ConversationMemoryModel.id == id).values(summary=summary)
+            )
+            await session.commit()
+
+    async def get_conversation_memories(self, agent_id: str, limit: int = 10) -> List[ConversationMemory]:
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            result = await session.execute(
+                select(ConversationMemoryModel)
+                .where(ConversationMemoryModel.agent_id == agent_id)
+                .order_by(ConversationMemoryModel.created_at.desc())
+                .limit(limit)
+            )
+            return [self._to_conversation_memory(row) for row in result.scalars().all()]
+
+    async def delete_conversation_memory(self, id: str) -> None:
+        async with self.async_session() as session:
+            from sqlalchemy import delete
+            await session.execute(delete(ConversationMemoryModel).where(ConversationMemoryModel.id == id))
+            await session.commit()
+
+    async def delete_conversation_memories_by_agent(self, agent_id: str) -> None:
+        async with self.async_session() as session:
+            from sqlalchemy import delete
+            await session.execute(delete(ConversationMemoryModel).where(ConversationMemoryModel.agent_id == agent_id))
+            await session.commit()
