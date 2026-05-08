@@ -1,8 +1,44 @@
 """Conversation Memory Service."""
+import asyncio
+import logging
 from typing import List, Optional
 
+from app.config import settings
 from app.domain.conversation_memory import ConversationMemory
 from app.infrastructure.storage.base import StorageAdapter
+
+logger = logging.getLogger(__name__)
+
+
+async def summarize_conversation_task(memory_id: str, user_input: str, agent_output: str, storage: StorageAdapter):
+    """Background task to generate summary using LLM."""
+    try:
+        # Build prompt for summarization
+        prompt = f"""请用500字以内总结以下对话的核心内容。
+
+用户输入: {user_input}
+
+助手回复: {agent_output}
+
+摘要:"""
+
+        from langchain_openai import ChatOpenAI
+
+        model = ChatOpenAI(
+            model=settings.models.default.model,
+            api_key=settings.models.default.api_key,
+            base_url=settings.models.default.base_url,
+        )
+
+        response = await model.ainvoke(prompt)
+        summary = response.content.strip()
+
+        # Update the memory with summary
+        await storage.update_conversation_memory_summary(memory_id, summary)
+        logger.info(f"Summary generated for memory {memory_id}: {summary[:100]}...")
+    except Exception as e:
+        logger.error(f"Failed to generate summary for memory {memory_id}: {e}")
+        # Don't re-raise - summary failure should not affect main flow
 
 
 class ConversationMemoryService:

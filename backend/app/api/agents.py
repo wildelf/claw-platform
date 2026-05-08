@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from app.api.deps import Storage, UserId
 from app.application.agent_service import AgentService
+from app.application.conversation_memory_service import ConversationMemoryService, summarize_conversation_task
 from app.domain.agent import Agent
 from app.domain.base import EntityId
 from app.infrastructure.redis_client import get_agent_registry
@@ -202,6 +203,7 @@ async def run_agent(
 
         try:
             yield f"data: {json.dumps({'type': 'start', 'task': task, 'model': model_name, 'session_id': request.session_id})}\n\n"
+            accumulated_output = ""
             for event in await run_with_cancel_check(runner, task, request.images):
                 # Handle the new event dict format
                 event_type = event.get("type", "content")
@@ -210,6 +212,7 @@ async def run_agent(
                     # Remove thinking tags
                     content = content.replace("<think>", "").replace("</think>", "")
                     if content.strip():
+                        accumulated_output += content
                         yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
                 else:
                     # Forward other event types as-is
@@ -219,6 +222,23 @@ async def run_agent(
                         # Skip non-serializable events like Overwrite objects
                         pass
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+            # Create memory and trigger async summarization after streaming completes
+            memory_service = ConversationMemoryService(storage)
+            memory = await memory_service.create_memory(
+                agent_id=agent_id,
+                user_input=request.task,
+                agent_output=accumulated_output,
+            )
+            if request.session_id:
+                asyncio.create_task(
+                    summarize_conversation_task(
+                        memory_id=memory.id,
+                        user_input=request.task,
+                        agent_output=accumulated_output,
+                        storage=storage,
+                    )
+                )
         except asyncio.CancelledError:
             yield f"data: {json.dumps({'type': 'cancelled'})}\n\n"
         except Exception as e:
@@ -308,6 +328,7 @@ async def run_agent_with_feedback(
                     # Remove thinking tags
                     content = content.replace("<think>", "").replace("</think>", "")
                     if content.strip():
+                        accumulated_output += content
                         yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
                 else:
                     # Forward other event types as-is
