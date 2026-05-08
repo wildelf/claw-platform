@@ -15,7 +15,7 @@ const props = defineProps<Props>()
 
 <template>
   <div class="overflow-x-auto">
-    <table class="min-w-full divide-y divide-gray-200">
+    <table class="min-w-full divide-y divide-[var(--border-color)]">
       <thead class="bg-[var(--bg-secondary)]">
         <tr>
           <th
