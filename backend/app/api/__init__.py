@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.api import agents, auth, feedback, models, sessions, skills, tools
+from app.api import agents, auth, conversation_memories, feedback, models, sessions, skills, tools
 
 api_router = APIRouter()
 
@@ -11,6 +11,7 @@ api_router.include_router(agents.router)
 api_router.include_router(auth.router)
 api_router.include_router(feedback.router)
 api_router.include_router(models.router)
+api_router.include_router(conversation_memories.router)
 api_router.include_router(sessions.router)  # ADD THIS LINE
 api_router.include_router(skills.router)
 api_router.include_router(tools.router)
