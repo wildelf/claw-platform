@@ -954,6 +954,12 @@ class SQLiteStorage:
 
     async def save_conversation_memory(self, memory: ConversationMemory) -> None:
         async with self.async_session() as session:
+            from sqlalchemy import select
+            result = await session.execute(
+                select(ConversationMemoryModel).where(ConversationMemoryModel.id == memory.id)
+            )
+            existing = result.scalar_one_or_none()
+
             model = ConversationMemoryModel(
                 id=memory.id,
                 agent_id=memory.agent_id,
@@ -962,7 +968,12 @@ class SQLiteStorage:
                 summary=memory.summary,
                 created_at=memory.created_at,
             )
-            session.add(model)
+
+            if existing:
+                for key in ['user_input', 'agent_output', 'summary', 'created_at']:
+                    setattr(existing, key, getattr(model, key))
+            else:
+                session.add(model)
             await session.commit()
 
     async def update_conversation_memory_summary(self, id: str, summary: str) -> None:
