@@ -6,7 +6,7 @@ import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import agents, auth, skills, tools, models, feedback, scheduled_tasks, logs, sessions
+from app.api import agents, auth, skills, tools, models, feedback, scheduled_tasks, logs, sessions, conversation_memories
 from app.config import settings
 
 # Configure logging
@@ -40,6 +40,7 @@ app.include_router(feedback.router, prefix="/api")
 app.include_router(scheduled_tasks.router, prefix="/api")
 app.include_router(logs.router, prefix="/api")
 app.include_router(sessions.router, prefix="/api")
+app.include_router(conversation_memories.router, prefix="/api")
 
 
 @app.get("/health")
