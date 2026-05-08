@@ -122,20 +122,13 @@ async function handleDelete(id: string) {
 </template>
 
 <style scoped>
-.drawer-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.3);
-  z-index: 100;
-}
-
 .drawer {
   position: fixed;
   top: 0;
   right: 0;
   width: 320px;
   height: 100vh;
-  background: var(--color-surface);
+  background: var(--bg-primary);
   box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
   transform: translateX(100%);
   transition: transform 0.2s ease;
@@ -153,11 +146,12 @@ async function handleDelete(id: string) {
   align-items: center;
   justify-content: space-between;
   padding: 16px;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .drawer-title {
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 .close-btn {
@@ -166,11 +160,11 @@ async function handleDelete(id: string) {
   font-size: 20px;
   cursor: pointer;
   padding: 4px;
-  color: var(--color-text-muted);
+  color: var(--text-muted);
 }
 
 .close-btn:hover {
-  color: var(--color-text);
+  color: var(--text-primary);
 }
 
 .drawer-content {
@@ -201,7 +195,7 @@ async function handleDelete(id: string) {
   align-items: center;
   padding: 10px 12px;
   border-radius: 6px;
-  background: var(--color-background);
+  background: var(--bg-secondary);
 }
 
 .session-item:hover .session-actions {
@@ -220,12 +214,13 @@ async function handleDelete(id: string) {
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 14px;
+  color: var(--text-primary);
 }
 
 .session-time {
   display: block;
   font-size: 12px;
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
@@ -250,7 +245,7 @@ async function handleDelete(id: string) {
 
 .empty-state {
   text-align: center;
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   padding: 24px;
 }
 </style>

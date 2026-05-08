@@ -2,7 +2,7 @@
 import logging
 from typing import List
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from app.api.deps import Storage
@@ -71,18 +71,15 @@ async def create_memory(
     return ConversationMemoryResponse.from_memory(memory)
 
 
-@router.patch("/{memory_id}/summary", response_model=ConversationMemoryResponse)
+@router.patch("/{memory_id}/summary", status_code=204)
 async def update_summary(
     memory_id: str,
     request: UpdateSummaryRequest,
     storage: Storage,
-) -> ConversationMemoryResponse:
+) -> None:
     """Update the summary of a conversation memory."""
     service = ConversationMemoryService(storage)
-    memory = await service.update_summary(memory_id, request.summary)
-    if not memory:
-        raise HTTPException(status_code=404, detail="Memory not found")
-    return ConversationMemoryResponse.from_memory(memory)
+    await service.update_summary(memory_id, request.summary)
 
 
 @router.delete("/{memory_id}")
