@@ -9,6 +9,7 @@ import SessionsDrawer from '@/components/SessionsDrawer.vue'
 import { useAgentsStore, getStoredSessionId, setStoredSessionId } from '@/stores/agents'
 import { useModelsStore } from '@/stores/models'
 import { useScheduledTasksStore } from '@/stores/scheduled_tasks'
+import { conversationMemoriesApi } from '@/api/conversation_memories'
 
 const route = useRoute()
 const router = useRouter()
@@ -250,10 +251,25 @@ async function handleRun() {
   }
   currentSessionId.value = sessionId
 
+  // Fetch recent memories and build context
+  let fullTask = taskInput.value
+  try {
+    const memories = await conversationMemoriesApi.list(agentId.value, 10)
+    if (memories.length > 0) {
+      const historyContext = memories
+        .map(m => `用户: ${m.user_input}\n助手: ${m.summary}`)
+        .join('\n\n')
+      fullTask = `${historyContext}\n\n当前问题: ${taskInput.value}`
+    }
+  } catch (e) {
+    // Silently fail - proceed without memory context
+    console.warn('Failed to fetch memories:', e)
+  }
+
   const response = await fetch(`/api/agents/${agentId.value}/run`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ task: taskInput.value, session_id: sessionId }),
+    body: JSON.stringify({ task: fullTask, session_id: sessionId }),
     signal: controller.signal,
   })
 
@@ -307,6 +323,19 @@ async function handleRun() {
   }
 
   agentMessage.isComplete = true
+
+  // Store conversation memory asynchronously (fire-and-forget)
+  if (agentMessage.content) {
+    conversationMemoriesApi.create(
+      agentId.value,
+      userMessage.content,  // original user input
+      agentMessage.content,  // agent output
+      currentSessionId.value || undefined
+    ).catch(e => {
+      console.warn('Failed to store memory:', e)
+    })
+  }
+
   isLoading.value = false
   stopping.value = false
   currentController.value = null
