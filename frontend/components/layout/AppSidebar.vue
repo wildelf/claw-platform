@@ -73,8 +73,8 @@ const sidebarWidth = computed(() => props.collapsed ? 'w-16' : 'w-60')
         v-for="item in navItems"
         :key="item.path"
         :to="item.path"
-        active-class="bg-primary-50 text-primary-600"
-        exact-active-class="bg-primary-50 text-primary-600"
+        active-class="bg-[var(--bg-secondary)] text-[var(--color-primary)]"
+        exact-active-class="bg-[var(--bg-secondary)] text-[var(--color-primary)]"
         class="flex items-center px-3 py-2.5 rounded-md hover:bg-gray-100 transition-colors mb-1"
         :class="collapsed ? 'justify-center' : ''"
       >

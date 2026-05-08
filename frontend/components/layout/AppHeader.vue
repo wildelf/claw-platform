@@ -20,11 +20,11 @@ function handleLogout() {
 </script>
 
 <template>
-  <header class="fixed top-0 left-0 right-0 h-14 bg-white border-b border-gray-200 z-50">
+  <header class="fixed top-0 left-0 right-0 h-14 bg-[var(--bg-primary)] border-b border-[var(--border-color)] z-50">
     <div class="flex items-center h-full px-4">
       <button
         @click="emit('toggleSidebar')"
-        class="p-2 rounded-md hover:bg-gray-100 transition-colors"
+        class="p-2 rounded-md hover:bg-[var(--bg-secondary)] transition-colors"
         aria-label="Toggle sidebar"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
@@ -32,42 +32,42 @@ function handleLogout() {
         </svg>
       </button>
 
-      <div class="ml-4 text-lg font-semibold text-gray-900">
+      <div class="ml-4 text-lg font-semibold text-[var(--text-primary)]">
         Claw Platform
       </div>
 
       <nav class="hidden md:flex items-center justify-center flex-1 space-x-8">
         <RouterLink
           to="/"
-          class="text-gray-600 hover:text-gray-900 transition-colors"
+          class="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           active-class="text-primary-600 font-medium"
         >
           Dashboard
         </RouterLink>
         <RouterLink
           to="/agents"
-          class="text-gray-600 hover:text-gray-900 transition-colors"
+          class="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           active-class="text-primary-600 font-medium"
         >
           Agents
         </RouterLink>
         <RouterLink
           to="/skills"
-          class="text-gray-600 hover:text-gray-900 transition-colors"
+          class="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           active-class="text-primary-600 font-medium"
         >
           Skills
         </RouterLink>
         <RouterLink
           to="/tools"
-          class="text-gray-600 hover:text-gray-900 transition-colors"
+          class="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           active-class="text-primary-600 font-medium"
         >
           Tools
         </RouterLink>
         <RouterLink
           to="/feedback"
-          class="text-gray-600 hover:text-gray-900 transition-colors"
+          class="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           active-class="text-primary-600 font-medium"
         >
           Feedback
@@ -76,10 +76,10 @@ function handleLogout() {
 
       <div class="flex items-center space-x-4">
         <template v-if="isAuthenticated && user">
-          <span class="text-sm text-gray-700">{{ user.username }}</span>
+          <span class="text-sm text-[var(--text-secondary)]">{{ user.username }}</span>
           <button
             @click="handleLogout"
-            class="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+            class="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           >
             Logout
           </button>
@@ -87,13 +87,13 @@ function handleLogout() {
         <template v-else>
           <RouterLink
             to="/login"
-            class="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+            class="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           >
             Login
           </RouterLink>
           <RouterLink
             to="/register"
-            class="text-sm text-primary-600 hover:text-primary-700 transition-colors"
+            class="text-sm text-[var(--text-primary)] hover:text-[var(--color-primary)] transition-colors"
           >
             Register
           </RouterLink>

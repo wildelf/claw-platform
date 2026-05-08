@@ -69,7 +69,7 @@ const sidebarWidth = computed(() => props.collapsed ? 'w-16' : 'w-60')
 <template>
   <aside
     :class="[
-      'fixed left-0 top-14 bottom-0 bg-white border-r border-gray-200 transition-all duration-300 z-40',
+      'fixed left-0 top-14 bottom-0 bg-[var(--bg-primary)] border-r border-[var(--border-color)] transition-all duration-300 z-40',
       sidebarWidth
     ]"
   >
@@ -80,7 +80,7 @@ const sidebarWidth = computed(() => props.collapsed ? 'w-16' : 'w-60')
         :to="item.path"
         active-class="bg-primary-50 text-primary-600"
         exact-active-class="bg-primary-50 text-primary-600"
-        class="flex items-center px-3 py-2.5 rounded-md hover:bg-gray-100 transition-colors mb-1"
+        class="flex items-center px-3 py-2.5 rounded-md hover:bg-[var(--bg-secondary)] transition-colors mb-1"
         :class="collapsed ? 'justify-center' : ''"
       >
         <svg
@@ -93,18 +93,18 @@ const sidebarWidth = computed(() => props.collapsed ? 'w-16' : 'w-60')
         >
           <path stroke-linecap="round" stroke-linejoin="round" :d="item.icon" />
         </svg>
-        <span v-if="!collapsed" class="text-sm text-gray-700">{{ item.label }}</span>
+        <span v-if="!collapsed" class="text-sm text-[var(--text-secondary)]">{{ item.label }}</span>
       </RouterLink>
     </nav>
 
-    <div v-if="!collapsed" class="px-4 pt-4 border-t border-gray-200 mt-4">
-      <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Recent Agents</h3>
+    <div v-if="!collapsed" class="px-4 pt-4 border-t border-[var(--border-color)] mt-4">
+      <h3 class="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">Recent Agents</h3>
       <div class="space-y-2">
         <button
           v-for="agent in recentAgents"
           :key="agent.id"
           @click="router.push(`/agents/${agent.id}`)"
-          class="w-full text-left px-3 py-2 text-sm text-gray-700 rounded-md hover:bg-gray-100 transition-colors"
+          class="w-full text-left px-3 py-2 text-sm text-[var(--text-secondary)] rounded-md hover:bg-[var(--bg-secondary)] transition-colors"
         >
           {{ agent.name }}
         </button>

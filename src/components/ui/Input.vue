@@ -23,14 +23,14 @@ const emit = defineEmits<{
       :class="[
         'w-full px-3 py-2 border rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500',
         {
-          'border-gray-300': !error,
-          'border-red-500': error,
-          'bg-gray-100 cursor-not-allowed': disabled,
-          'bg-white': !disabled
+          'border-[var(--border-color)]': !error,
+          'border-[var(--color-danger)]': error,
+          'bg-[var(--bg-tertiary)] cursor-not-allowed': disabled,
+          'bg-[var(--bg-primary)]': !disabled
         }
       ]"
       @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
     />
-    <p v-if="error" class="mt-1 text-sm text-red-500">{{ error }}</p>
+    <p v-if="error" class="mt-1 text-sm text-[var(--color-danger)]">{{ error }}</p>
   </div>
 </template>
