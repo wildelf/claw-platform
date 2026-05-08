@@ -328,7 +328,6 @@ async def run_agent_with_feedback(
                     # Remove thinking tags
                     content = content.replace("<think>", "").replace("</think>", "")
                     if content.strip():
-                        accumulated_output += content
                         yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
                 else:
                     # Forward other event types as-is
