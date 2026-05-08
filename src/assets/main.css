@@ -7,3 +7,26 @@
   --color-success: #22c55e;
   --color-danger: #ef4444;
 }
+
+/* 白色主题 (默认) */
+[data-theme="light"],
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-tertiary: #e5e5e5;
+  --border-color: #d4d4d4;
+  --text-primary: #171717;
+  --text-secondary: #525252;
+  --text-muted: #a3a3a3;
+}
+
+/* 黑色主题 */
+[data-theme="dark"] {
+  --bg-primary: #1f1f1f;
+  --bg-secondary: #262626;
+  --bg-tertiary: #333333;
+  --border-color: #404040;
+  --text-primary: #fafafa;
+  --text-secondary: #a3a3a3;
+  --text-muted: #737373;
+}
