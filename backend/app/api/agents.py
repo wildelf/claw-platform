@@ -134,6 +134,7 @@ async def delete_agent(
 class RunAgentRequest(BaseModel):
     """Payload for running an agent."""
     task: str
+    user_input: str | None = Field(default=None, description="原始用户输入，不含历史上下文")
     images: list[str] = Field(default_factory=list, description="Base64 encoded images")
     model_config_id: str | None = Field(default=None, description="临时覆盖默认模型")
     session_id: str | None = Field(default=None, description="会话ID，用于多轮对话继续")
@@ -204,8 +205,7 @@ async def run_agent(
                 event_type = event.get("type", "content")
                 if event_type == "content":
                     content = event.get("content", "")
-                    # Remove thinking tags
-                    content = content.replace("<think>", "").replace("</think>", "")
+                    # Do NOT remove thinking tags - let them through to frontend for display
                     if content.strip():
                         accumulated_output += content
                         yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
@@ -220,10 +220,12 @@ async def run_agent(
 
             # Create memory and trigger async summarization after streaming completes
             memory_service = ConversationMemoryService(storage)
+            # Use user_input from request if provided, otherwise use task (for backward compatibility)
+            actual_user_input = request.user_input if request.user_input else request.task
             memory = await memory_service.create_memory(
                 agent_id=agent_id,
                 session_id=request.session_id or "",
-                user_input=request.task,
+                user_input=actual_user_input,
                 agent_output=accumulated_output,
             )
             if request.session_id:

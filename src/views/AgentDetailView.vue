@@ -262,12 +262,13 @@ async function handleRun() {
     if (sessionId) {
       const memories = await conversationMemoriesApi.list(agentId.value, sessionId, 10)
       if (memories.length > 0) {
-        // Build context from memories - use summary if available, otherwise use agent_output
+        // Always use cleaned agent_output - never use summary which may contain polluted content
         const historyContext = memories
           .map(m => {
-            // Use summary if available, otherwise use the raw agent output
-            const responseText = m.summary || m.agent_output
-            return `用户: ${m.user_input}\n助手: ${responseText}`
+            const cleanResponse = (m.agent_output || '')
+              .replace(/<think>[\s\S]*?<\/think>/gi, '')
+              .trim()
+            return `用户: ${m.user_input}\n助手: ${cleanResponse}`
           })
           .join('\n\n')
         if (historyContext) {
@@ -283,7 +284,7 @@ async function handleRun() {
   const response = await fetch(`/api/agents/${agentId.value}/run`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ task: fullTask, session_id: sessionId }),
+    body: JSON.stringify({ task: fullTask, user_input: taskInput.value, session_id: sessionId }),
     signal: controller.signal,
   })
 

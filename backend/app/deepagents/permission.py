@@ -72,8 +72,7 @@ class PermissionController:
         builtin_tools = {
             "read_file", "write_file", "bash", "shell",
             "Calculator", "WolframAlpha", "arxiv",
-            "ImageGenerationTool", "ScriptExecutionTool", "WebSearchTool",
-            # Add more as needed
+            "generate_image", "execute_script", "web_search",
         }
         return tool_name in builtin_tools
 

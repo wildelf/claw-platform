@@ -597,6 +597,14 @@ IMPORTANT: When the user asks to manipulate an image (like "rotate the image"), 
         today = date.today()
         parts.append(f"Current date: {today.year}-{today.month:02d}-{today.day:02d}")
 
+        # Add web search availability notice
+        web_search_enabled = getattr(settings, 'web_search', None) and settings.web_search.enabled
+        if web_search_enabled or 'web_search' in self.agent.enabled_builtin_tools:
+            parts.append(
+                "You have access to a web_search tool for real-time information "
+                "(e.g., current weather, news, stock prices). Use it when the user asks about things that need up-to-date data."
+            )
+
         if self.agent.role:
             parts.append(f"You are {self.agent.role}.")
         if self.agent.goal:

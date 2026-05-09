@@ -202,7 +202,7 @@ class SkillEventMiddleware(BaseSkillsMiddleware):
         builtin_tools = {
             "read_file", "write_file", "bash", "shell",
             "Calculator", "WolframAlpha", "arxiv",
-            "ImageGenerationTool", "ScriptExecutionTool", "WebSearchTool",
+            "generate_image", "execute_script", "web_search",
         }
         return tool_name in builtin_tools
 
