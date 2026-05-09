@@ -419,6 +419,8 @@ function handleEvent(data: any, agentMessage: Message) {
 
     case 'content':
       let content = data.content || ''
+      // Strip thinking tags - thinking content should not be in the main content
+      // (it will be shown separately via thinking events if deepagents sends them)
       content = content.replace(/<think>[\s\S]*?<\/think>/gi, '')
       if (content.trim()) {
         agentMessage.content += content
