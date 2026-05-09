@@ -2,7 +2,7 @@
 import logging
 from typing import List
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel
 
 from app.api.deps import Storage
@@ -16,6 +16,7 @@ router = APIRouter(prefix="/conversation-memories", tags=["conversation-memories
 class ConversationMemoryResponse(BaseModel):
     id: str
     agent_id: str
+    session_id: str
     user_input: str
     agent_output: str
     summary: str
@@ -26,6 +27,7 @@ class ConversationMemoryResponse(BaseModel):
         return cls(
             id=memory.id,
             agent_id=memory.agent_id,
+            session_id=memory.session_id,
             user_input=memory.user_input,
             agent_output=memory.agent_output,
             summary=memory.summary,
@@ -35,9 +37,9 @@ class ConversationMemoryResponse(BaseModel):
 
 class CreateConversationMemoryRequest(BaseModel):
     agent_id: str
+    session_id: str
     user_input: str
     agent_output: str
-    session_id: str | None = None
 
 
 class UpdateSummaryRequest(BaseModel):
@@ -48,11 +50,12 @@ class UpdateSummaryRequest(BaseModel):
 async def list_memories(
     storage: Storage,
     agent_id: str = Query(...),
+    session_id: str = Query(...),
     limit: int = Query(default=10, le=20),
 ) -> List[ConversationMemoryResponse]:
-    """Get conversation memories for an agent, ordered by created_at desc."""
+    """Get conversation memories for an agent and session, ordered by created_at desc."""
     service = ConversationMemoryService(storage)
-    memories = await service.get_memories(agent_id, limit=limit)
+    memories = await service.get_memories(agent_id, session_id, limit=limit)
     return [ConversationMemoryResponse.from_memory(m) for m in memories]
 
 
@@ -65,6 +68,7 @@ async def create_memory(
     service = ConversationMemoryService(storage)
     memory = await service.create_memory(
         agent_id=request.agent_id,
+        session_id=request.session_id,
         user_input=request.user_input,
         agent_output=request.agent_output,
     )
@@ -94,11 +98,12 @@ async def delete_memory(
 
 
 @router.delete("")
-async def delete_memories_by_agent(
+async def delete_memories_by_session(
     storage: Storage,
     agent_id: str = Query(...),
+    session_id: str = Query(...),
 ) -> dict:
-    """Delete all conversation memories for an agent."""
+    """Delete all conversation memories for an agent and session."""
     service = ConversationMemoryService(storage)
-    await service.delete_memories_by_agent(agent_id)
+    await service.delete_memories_by_session(agent_id, session_id)
     return {"ok": True}

@@ -222,6 +222,7 @@ async def run_agent(
             memory_service = ConversationMemoryService(storage)
             memory = await memory_service.create_memory(
                 agent_id=agent_id,
+                session_id=request.session_id or "",
                 user_input=request.task,
                 agent_output=accumulated_output,
             )

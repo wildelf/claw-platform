@@ -254,18 +254,20 @@ async function handleRun() {
   // Fetch recent memories and build context
   let fullTask = taskInput.value
   try {
-    const memories = await conversationMemoriesApi.list(agentId.value, 10)
-    if (memories.length > 0) {
-      // Build context from memories - use summary if available, otherwise use agent_output
-      const historyContext = memories
-        .map(m => {
-          // Use summary if available, otherwise use the raw agent output
-          const responseText = m.summary || m.agent_output
-          return `用户: ${m.user_input}\n助手: ${responseText}`
-        })
-        .join('\n\n')
-      if (historyContext) {
-        fullTask = `${historyContext}\n\n当前问题: ${taskInput.value}`
+    if (sessionId) {
+      const memories = await conversationMemoriesApi.list(agentId.value, sessionId, 10)
+      if (memories.length > 0) {
+        // Build context from memories - use summary if available, otherwise use agent_output
+        const historyContext = memories
+          .map(m => {
+            // Use summary if available, otherwise use the raw agent output
+            const responseText = m.summary || m.agent_output
+            return `用户: ${m.user_input}\n助手: ${responseText}`
+          })
+          .join('\n\n')
+        if (historyContext) {
+          fullTask = `${historyContext}\n\n当前问题: ${taskInput.value}`
+        }
       }
     }
   } catch (e) {
@@ -332,12 +334,12 @@ async function handleRun() {
   agentMessage.isComplete = true
 
   // Store conversation memory asynchronously (fire-and-forget)
-  if (agentMessage.content) {
+  if (agentMessage.content && sessionId) {
     conversationMemoriesApi.create(
       agentId.value,
+      sessionId,
       userMessage.content,  // original user input
-      agentMessage.content,  // agent output
-      currentSessionId.value || undefined
+      agentMessage.content  // agent output
     ).catch(e => {
       console.warn('Failed to store memory:', e)
     })

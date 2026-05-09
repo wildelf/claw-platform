@@ -205,11 +205,12 @@ class SessionModel(Base):
 class ConversationMemoryModel(Base):
     __tablename__ = "conversation_memories"
     __table_args__ = (
-        Index("ix_conversation_memories_agent_created", "agent_id", "created_at"),
+        Index("ix_conversation_memories_agent_session_created", "agent_id", "session_id", "created_at"),
     )
 
     id = Column(String(36), primary_key=True)
     agent_id = Column(String(36), nullable=False)
+    session_id = Column(String(36), nullable=False)
     user_input = Column(Text, nullable=False)
     agent_output = Column(Text, nullable=False)
     summary = Column(Text, default="")
@@ -946,6 +947,7 @@ class SQLiteStorage:
         return ConversationMemory(
             id=EntityId(row.id),
             agent_id=EntityId(row.agent_id),
+            session_id=row.session_id,
             user_input=row.user_input,
             agent_output=row.agent_output,
             summary=row.summary,
@@ -963,6 +965,7 @@ class SQLiteStorage:
             model = ConversationMemoryModel(
                 id=memory.id,
                 agent_id=memory.agent_id,
+                session_id=memory.session_id,
                 user_input=memory.user_input,
                 agent_output=memory.agent_output,
                 summary=memory.summary,
@@ -984,12 +987,13 @@ class SQLiteStorage:
             )
             await session.commit()
 
-    async def get_conversation_memories(self, agent_id: str, limit: int = 10) -> List[ConversationMemory]:
+    async def get_conversation_memories(self, agent_id: str, session_id: str, limit: int = 10) -> List[ConversationMemory]:
         async with self.async_session() as session:
             from sqlalchemy import select
             result = await session.execute(
                 select(ConversationMemoryModel)
                 .where(ConversationMemoryModel.agent_id == agent_id)
+                .where(ConversationMemoryModel.session_id == session_id)
                 .order_by(ConversationMemoryModel.created_at.desc())
                 .limit(limit)
             )
@@ -999,6 +1003,17 @@ class SQLiteStorage:
         async with self.async_session() as session:
             from sqlalchemy import delete
             await session.execute(delete(ConversationMemoryModel).where(ConversationMemoryModel.id == id))
+            await session.commit()
+
+    async def delete_conversation_memories_by_session(self, agent_id: str, session_id: str) -> None:
+        async with self.async_session() as session:
+            from sqlalchemy import delete
+            await session.execute(
+                delete(ConversationMemoryModel).where(
+                    ConversationMemoryModel.agent_id == agent_id,
+                    ConversationMemoryModel.session_id == session_id
+                )
+            )
             await session.commit()
 
     async def delete_conversation_memories_by_agent(self, agent_id: str) -> None:
