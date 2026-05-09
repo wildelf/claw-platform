@@ -150,7 +150,6 @@ async def run_agent(
     Executes the agent using deepagents and streams results.
     """
     from app.deepagents.wrapper import DeepAgentsRunner
-    from langgraph.checkpoint.memory import MemorySaver
 
     service = AgentService(storage)
     agent = await service.get(agent_id)
@@ -164,10 +163,6 @@ async def run_agent(
             raise HTTPException(status_code=400, detail="Model config not found")
 
     runner = DeepAgentsRunner(agent, storage, override_model_config_id=request.model_config_id)
-
-    # Set checkpointer if session_id provided
-    if request.session_id:
-        runner.set_checkpointer(MemorySaver(), request.session_id)
 
     try:
         await runner.create()
