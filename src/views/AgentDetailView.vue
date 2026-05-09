@@ -257,9 +257,12 @@ async function handleRun() {
     const memories = await conversationMemoriesApi.list(agentId.value, 10)
     if (memories.length > 0) {
       const historyContext = memories
+        .filter(m => m.summary)  // Only include memories with actual summary
         .map(m => `用户: ${m.user_input}\n助手: ${m.summary}`)
         .join('\n\n')
-      fullTask = `${historyContext}\n\n当前问题: ${taskInput.value}`
+      if (historyContext) {
+        fullTask = `${historyContext}\n\n当前问题: ${taskInput.value}`
+      }
     }
   } catch (e) {
     // Silently fail - proceed without memory context
