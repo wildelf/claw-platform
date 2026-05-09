@@ -141,8 +141,13 @@ function getEventLabel(type: string): string {
 function clearOutput() {
   messages.value = []
   seenEvents.clear()
-  currentSessionId.value = null
+  // Clear session from localStorage
   localStorage.removeItem(`agent_session_${agentId.value}`)
+  // Clear memories from database for this session
+  if (currentSessionId.value) {
+    conversationMemoriesApi.deleteBySession(agentId.value, currentSessionId.value).catch(() => {})
+  }
+  currentSessionId.value = null
 }
 
 function openSessionsDrawer() {
@@ -335,14 +340,20 @@ async function handleRun() {
 
   // Store conversation memory asynchronously (fire-and-forget)
   if (agentMessage.content && sessionId) {
-    conversationMemoriesApi.create(
-      agentId.value,
-      sessionId,
-      userMessage.content,  // original user input
-      agentMessage.content  // agent output
-    ).catch(e => {
-      console.warn('Failed to store memory:', e)
-    })
+    // Clean the agent output - remove thinking tags if any slipped through
+    const cleanOutput = agentMessage.content
+      .replace(/<think>[\s\S]*?<\/think>/gi, '')
+      .trim()
+    if (cleanOutput) {
+      conversationMemoriesApi.create(
+        agentId.value,
+        sessionId,
+        userMessage.content,  // original user input
+        cleanOutput
+      ).catch(e => {
+        console.warn('Failed to store memory:', e)
+      })
+    }
   }
 
   isLoading.value = false
