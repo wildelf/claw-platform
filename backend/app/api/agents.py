@@ -392,7 +392,7 @@ async def search_agent_memories(agent_id: str, q: str):
 async def trigger_nudge_check(agent_id: str, request: dict):
     """手动触发 nudge 检查"""
     from app.application.self_nudge_service import SelfNudgeService
-    from app.main import get_storage
+    from app.api.deps import get_storage
 
     storage = await get_storage()
     service = SelfNudgeService(storage=storage)
