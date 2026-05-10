@@ -83,7 +83,7 @@ class SelfNudgeService:
                 session_id=session_id,
                 memory_type=",".join(memory_written) if memory_written else "skill",
                 content=decision.summary,
-                trigger_reason="reasoning" if has_rule_match else "rule",
+                trigger_reason="rule" if has_rule_match else "reasoning",
                 priority=decision.priority,
             )
 
