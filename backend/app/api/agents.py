@@ -370,3 +370,44 @@ async def stop_agent(
     if await registry.request_agent_cancel(agent_id):
         return {"status": "stopped", "agent_id": agent_id}
     return {"status": "not_running", "agent_id": agent_id}
+
+
+@router.get("/{agent_id}/memories")
+async def get_agent_memories(agent_id: str):
+    """获取该 Agent 的所有记忆"""
+    from app.application.memory.memory_persistence import MemoryPersistence
+    persistence = MemoryPersistence()
+    memories = await persistence.get_all_memories(agent_id)
+    return memories
+
+
+@router.get("/{agent_id}/memories/search")
+async def search_agent_memories(agent_id: str, q: str):
+    """跨会话搜索记忆（简单实现，返回空结果）"""
+    # TODO: 实现 FTS5 搜索
+    return {"results": []}
+
+
+@router.post("/{agent_id}/nudge")
+async def trigger_nudge_check(agent_id: str, request: dict):
+    """手动触发 nudge 检查"""
+    from app.application.self_nudge_service import SelfNudgeService
+    from app.main import get_storage
+
+    storage = await get_storage()
+    service = SelfNudgeService(storage=storage)
+
+    result = await service.process(
+        agent_id=agent_id,
+        session_id=request.get("session_id", ""),
+        reasoning=request.get("reasoning", ""),
+        user_input=request.get("user_input", ""),
+        agent_output=request.get("agent_output", ""),
+    )
+
+    return {
+        "nudge_triggered": result.nudge_triggered,
+        "memory_written": result.memory_written,
+        "skill_created": result.skill_created,
+        "skill_id": result.skill_id,
+    }
