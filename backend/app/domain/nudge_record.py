@@ -1,7 +1,7 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from app.domain.base import BaseEntity, EntityId
 
@@ -23,21 +23,21 @@ class NudgeRecord(BaseEntity):
     session_id: str
     memory_type: str  # "MEMORY.md" | "USER.md" | "skill"
     content: str
-    trigger_reason: str  # "rule" | "reasoning" | "composite"
-    priority: str  # "high" | "medium" | "low"
+    trigger_reason: Literal["rule", "reasoning", "composite"]  # "rule" | "reasoning" | "composite"
+    priority: NudgePriority  # "high" | "medium" | "low"
 
     @staticmethod
     def create(
-        agent_id: str,
+        agent_id: EntityId,
         session_id: str,
         memory_type: str,
         content: str,
-        trigger_reason: str,
-        priority: str = "medium",
+        trigger_reason: Literal["rule", "reasoning", "composite"],
+        priority: NudgePriority = NudgePriority.MEDIUM,
     ) -> "NudgeRecord":
         return NudgeRecord(
             id=EntityId.generate(),
-            agent_id=EntityId(agent_id),
+            agent_id=agent_id,
             session_id=session_id,
             memory_type=memory_type,
             content=content,

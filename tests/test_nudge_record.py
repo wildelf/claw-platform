@@ -2,26 +2,27 @@
 
 from datetime import datetime, timezone
 
+from app.domain.base import EntityId
 from app.domain.nudge_record import NudgeRecord, NudgePriority, NudgeType
 
 
 def test_nudge_record_create():
     """Test NudgeRecord.create() creates a valid instance."""
     record = NudgeRecord.create(
-        agent_id="agent-123",
+        agent_id=EntityId("agent-123"),
         session_id="session-456",
         memory_type="MEMORY.md",
         content="Remember to check the database connection",
         trigger_reason="rule",
-        priority="high",
+        priority=NudgePriority.HIGH,
     )
 
-    assert record.agent_id == "agent-123"
+    assert record.agent_id == EntityId("agent-123")
     assert record.session_id == "session-456"
     assert record.memory_type == "MEMORY.md"
     assert record.content == "Remember to check the database connection"
     assert record.trigger_reason == "rule"
-    assert record.priority == "high"
+    assert record.priority == NudgePriority.HIGH
     assert record.id is not None
     assert record.created_at is not None
 
@@ -29,12 +30,12 @@ def test_nudge_record_create():
 def test_nudge_record_serialization():
     """Test NudgeRecord can be serialized to dict."""
     record = NudgeRecord.create(
-        agent_id="agent-123",
+        agent_id=EntityId("agent-123"),
         session_id="session-456",
         memory_type="USER.md",
         content="Update user preferences",
         trigger_reason="reasoning",
-        priority="medium",
+        priority=NudgePriority.MEDIUM,
     )
 
     data = record.model_dump()
@@ -50,16 +51,16 @@ def test_nudge_record_serialization():
 
 
 def test_nudge_record_default_priority():
-    """Test NudgeRecord.create() uses 'medium' as default priority."""
+    """Test NudgeRecord.create() uses NudgePriority.MEDIUM as default priority."""
     record = NudgeRecord.create(
-        agent_id="agent-123",
+        agent_id=EntityId("agent-123"),
         session_id="session-456",
         memory_type="skill",
         content="Invoke the backup skill",
         trigger_reason="composite",
     )
 
-    assert record.priority == "medium"
+    assert record.priority == NudgePriority.MEDIUM
 
 
 def test_nudge_type_enum():
