@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+import re
 from typing import List
 
 
@@ -41,27 +42,26 @@ class RuleMatcher:
     def match(self, reasoning: str) -> List[NudgeCandidate]:
         """检测 reasoning 中的 nudge 候选"""
         candidates = []
-        import re
 
         # 检测记忆类模式
         for pattern, score in self.MEMORY_PATTERNS:
-            if re.search(pattern, reasoning, re.IGNORECASE):
-                match = re.search(pattern, reasoning, re.IGNORECASE)
+            match = re.search(pattern, reasoning, re.IGNORECASE)
+            if match:
                 candidates.append(NudgeCandidate(
                     type=NudgeType.MEMORY,
                     matched_pattern=pattern,
-                    matched_text=match.group() if match else "",
+                    matched_text=match.group(),
                     score=score,
                 ))
 
         # 检测技能类模式
         for pattern, score in self.SKILL_PATTERNS:
-            if re.search(pattern, reasoning, re.IGNORECASE):
-                match = re.search(pattern, reasoning, re.IGNORECASE)
+            match = re.search(pattern, reasoning, re.IGNORECASE)
+            if match:
                 candidates.append(NudgeCandidate(
                     type=NudgeType.SKILL,
                     matched_pattern=pattern,
-                    matched_text=match.group() if match else "",
+                    matched_text=match.group(),
                     score=score,
                 ))
 
