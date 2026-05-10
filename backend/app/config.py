@@ -100,6 +100,7 @@ class Settings(BaseSettings):
     redis: RedisConfig = RedisConfig()
     web_search: WebSearchConfig = WebSearchConfig()
     memory_storage_path: str = "~/.claw/memories"
+    skills_cache_path: str = "~/.claw/skills"
 
     @classmethod
     def from_yaml(cls, path: Path | str) -> "Settings":
