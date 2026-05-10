@@ -7,6 +7,7 @@ from app.domain.tool import Tool, ToolType
 from app.domain.model_config import ModelConfig, ModelProviderType
 from app.domain.user import User, UserRole
 from app.domain.feedback import FeedbackEvent, FeedbackRating
+from app.domain.nudge_record import NudgeRecord, NudgePriority, NudgeType
 
 __all__ = [
     "BaseEntity",
@@ -25,4 +26,7 @@ __all__ = [
     "UserRole",
     "FeedbackEvent",
     "FeedbackRating",
+    "NudgeRecord",
+    "NudgePriority",
+    "NudgeType",
 ]
