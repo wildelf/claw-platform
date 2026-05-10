@@ -21,6 +21,7 @@ from app.domain.user import User, UserRole
 from app.domain.log import LogEntry, LogActionType
 from app.domain.session import Session
 from app.domain.conversation_memory import ConversationMemory
+from app.domain.nudge_record import NudgeRecord, NudgePriority
 from app.infrastructure.storage.base import StorageAdapter
 
 
@@ -214,6 +215,23 @@ class ConversationMemoryModel(Base):
     user_input = Column(Text, nullable=False)
     agent_output = Column(Text, nullable=False)
     summary = Column(Text, default="")
+    created_at = Column(DateTime, nullable=False)
+
+
+class NudgeRecordModel(Base):
+    __tablename__ = "nudge_records"
+    __table_args__ = (
+        Index("ix_nudge_records_agent_id", "agent_id"),
+        Index("ix_nudge_records_created_at", "created_at"),
+    )
+
+    id = Column(String(36), primary_key=True)
+    agent_id = Column(String(36), nullable=False)
+    session_id = Column(String(36), nullable=False)
+    memory_type = Column(String(50), nullable=False)
+    content = Column(Text, nullable=False)
+    trigger_reason = Column(String(20), nullable=False)
+    priority = Column(String(20), nullable=False)
     created_at = Column(DateTime, nullable=False)
 
 
@@ -1021,3 +1039,62 @@ class SQLiteStorage:
             from sqlalchemy import delete
             await session.execute(delete(ConversationMemoryModel).where(ConversationMemoryModel.agent_id == agent_id))
             await session.commit()
+
+    # NudgeRecord operations
+    def _to_nudge_record(self, row: NudgeRecordModel) -> NudgeRecord:
+        return NudgeRecord(
+            id=EntityId(row.id),
+            agent_id=EntityId(row.agent_id),
+            session_id=row.session_id,
+            memory_type=row.memory_type,
+            content=row.content,
+            trigger_reason=row.trigger_reason,
+            priority=NudgePriority(row.priority),
+            created_at=row.created_at,
+        )
+
+    async def save_nudge_record(self, record: NudgeRecord) -> None:
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            result = await session.execute(
+                select(NudgeRecordModel).where(NudgeRecordModel.id == record.id)
+            )
+            existing = result.scalar_one_or_none()
+
+            model = NudgeRecordModel(
+                id=record.id,
+                agent_id=record.agent_id,
+                session_id=record.session_id,
+                memory_type=record.memory_type,
+                content=record.content,
+                trigger_reason=record.trigger_reason,
+                priority=record.priority if isinstance(record.priority, str) else record.priority.value,
+                created_at=record.created_at,
+            )
+
+            if existing:
+                for key in ['agent_id', 'session_id', 'memory_type', 'content', 'trigger_reason', 'priority']:
+                    setattr(existing, key, getattr(model, key))
+            else:
+                session.add(model)
+            await session.commit()
+
+    async def get_nudge_record(self, record_id: str) -> Optional[NudgeRecord]:
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            result = await session.execute(
+                select(NudgeRecordModel).where(NudgeRecordModel.id == record_id)
+            )
+            row = result.scalar_one_or_none()
+            return self._to_nudge_record(row) if row else None
+
+    async def get_nudge_records_by_agent(self, agent_id: str, limit: int = 100) -> List[NudgeRecord]:
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            result = await session.execute(
+                select(NudgeRecordModel)
+                .where(NudgeRecordModel.agent_id == agent_id)
+                .order_by(NudgeRecordModel.created_at.desc())
+                .limit(limit)
+            )
+            return [self._to_nudge_record(row) for row in result.scalars().all()]
