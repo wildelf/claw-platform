@@ -99,6 +99,7 @@ class Settings(BaseSettings):
     opensandbox: OpenSandboxConfig = OpenSandboxConfig()
     redis: RedisConfig = RedisConfig()
     web_search: WebSearchConfig = WebSearchConfig()
+    memory_storage_path: str = "~/.claw/memories"
 
     @classmethod
     def from_yaml(cls, path: Path | str) -> "Settings":
