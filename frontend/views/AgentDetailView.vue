@@ -45,7 +45,6 @@ const events = ref<Array<{
   toolName?: string
   timestamp: Date
 }>>([])
-const thinkingExpanded = ref(false)
 const thinkingContent = ref('')
 
 // Image state
@@ -73,22 +72,6 @@ function getStatusVariant(status: string): 'success' | 'warning' | 'danger' | 'd
     case 'inactive': return 'warning'
     case 'error': return 'danger'
     default: return 'default'
-  }
-}
-
-function getEventIcon(type: string): string {
-  switch (type) {
-    case 'preparing': return '⚙️'
-    case 'skill_loading': return '📦'
-    case 'skill_loaded': return '✅'
-    case 'skill_reading': return '📖'
-    case 'tool_call': return '🔧'
-    case 'content': return '💬'
-    case 'thinking': return '🤔'
-    case 'done': return '🎉'
-    case 'error': return '❌'
-    case 'image': return '🖼️'
-    default: return '📝'
   }
 }
 
@@ -376,227 +359,228 @@ function handleKeydown(e: KeyboardEvent) {
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-gray-900">Agent Details</h1>
+      <h1 class="text-2xl font-bold text-gray-900">Agent 信息</h1>
       <div class="flex gap-2">
-        <Button variant="primary" @click="handleRun" :loading="running">Run Agent</Button>
+        <Button variant="primary" @click="handleRun" :loading="running">执行 Agent</Button>
         <Button v-if="currentSessionId" variant="secondary" @click="clearSession">
           新对话
         </Button>
-        <Button variant="secondary" @click="handleEdit">Edit</Button>
+        <Button variant="secondary" @click="handleEdit">编辑</Button>
       </div>
     </div>
 
-    <div v-if="agentsStore.loading" class="text-center py-8 text-gray-500">Loading...</div>
-    <div v-else-if="!agent" class="text-center py-8 text-gray-500">Agent not found</div>
+    <div v-if="agentsStore.loading" class="text-center py-8 text-gray-500">加载中...</div>
+    <div v-else-if="!agent" class="text-center py-8 text-gray-500">Agent 未找到</div>
     <template v-else>
-      <Card>
-        <div class="space-y-4">
-          <div class="flex justify-between items-start">
-            <div>
-              <h2 class="text-xl font-semibold text-gray-900">{{ agent.name }}</h2>
-              <p class="text-gray-500 mt-1">{{ agent.description }}</p>
+      <!-- 2-column layout: Agent info (1 col) + Execution panel (2 cols) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Left column: Agent Info (compact) -->
+        <Card class="md:col-span-1">
+          <div class="space-y-4">
+            <div class="flex justify-between items-start">
+              <div>
+                <h2 class="text-xl font-semibold text-gray-900">{{ agent.name }}</h2>
+                <p class="text-gray-500 mt-1">{{ agent.description }}</p>
+              </div>
+              <Badge :variant="getStatusVariant(agent.status)" class="text-sm">
+                {{ agent.status }}
+              </Badge>
             </div>
-            <Badge :variant="getStatusVariant(agent.status)" class="text-sm">
-              {{ agent.status }}
-            </Badge>
-          </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
-            <div>
-              <p class="text-sm font-medium text-gray-500">Role</p>
-              <p class="text-gray-900">{{ agent.role || 'Not specified' }}</p>
+            <div class="grid grid-cols-1 gap-4 pt-4 border-t border-gray-200">
+              <div>
+                <p class="text-sm font-medium text-gray-500">Role</p>
+                <p class="text-gray-900">{{ agent.role || '未指定' }}</p>
+              </div>
+              <div>
+                <p class="text-sm font-medium text-gray-500">Goal</p>
+                <p class="text-gray-900">{{ agent.goal || '未指定' }}</p>
+              </div>
             </div>
-            <div>
-              <p class="text-sm font-medium text-gray-500">Goal</p>
-              <p class="text-gray-900">{{ agent.goal || 'Not specified' }}</p>
+
+            <div class="pt-4 border-t border-gray-200">
+              <p class="text-sm font-medium text-gray-500">Backstory</p>
+              <p class="text-gray-900 mt-1">{{ agent.backstory || '未指定' }}</p>
             </div>
           </div>
+        </Card>
 
-          <div class="pt-4 border-t border-gray-200">
-            <p class="text-sm font-medium text-gray-500">Backstory</p>
-            <p class="text-gray-900 mt-1">{{ agent.backstory || 'Not specified' }}</p>
-          </div>
-        </div>
-      </Card>
-
-      <!-- Run Agent Panel -->
-      <Card>
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Run Agent</h3>
-        <div class="space-y-4">
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
-            <select
-              v-model="selectedModelId"
-              class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
-              :disabled="running"
-            >
-              <option :value="null">System Default</option>
-              <option v-for="model in modelsStore.models" :key="model.id" :value="model.id">
-                {{ model.name }} ({{ model.model }})
-              </option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Task</label>
-            <textarea
-              v-model="taskInput"
-              class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
-              rows="3"
-              placeholder="Enter task description..."
-              :disabled="running"
-            />
-          </div>
-
-          <!-- Image Upload -->
-          <div>
-            <div class="flex items-center gap-2 mb-2">
-              <label class="text-sm font-medium text-gray-700">Images</label>
-              <button
-                type="button"
-                @click="triggerImageUpload"
-                class="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-600"
-                :disabled="running"
-              >
-                + Add Images
-              </button>
-              <input
-                ref="imageInputRef"
-                type="file"
-                accept="image/*"
-                multiple
-                class="hidden"
-                @change="handleImageSelect"
-              />
-            </div>
-            <div v-if="uploadedImages.length > 0" class="flex flex-wrap gap-2">
-              <div
-                v-for="(img, idx) in uploadedImages"
-                :key="idx"
-                class="relative group"
-              >
-                <img
-                  :src="img"
-                  class="w-20 h-20 object-cover rounded border border-gray-300"
-                />
-                <button
-                  @click="removeImage(idx)"
-                  class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+        <!-- Right column: Execution Panel (2 cols on desktop) -->
+        <div class="md:col-span-2 space-y-6">
+          <!-- Run Agent Panel -->
+          <Card>
+            <h3 class="text-lg font-medium text-gray-900 mb-4">执行面板</h3>
+            <div class="space-y-4">
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">模型</label>
+                <select
+                  v-model="selectedModelId"
+                  class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
                   :disabled="running"
                 >
-                  ×
-                </button>
+                  <option :value="null">系统默认</option>
+                  <option v-for="model in modelsStore.models" :key="model.id" :value="model.id">
+                    {{ model.name }} ({{ model.model }})
+                  </option>
+                </select>
               </div>
-            </div>
-            <p v-else class="text-xs text-gray-400">No images added</p>
-          </div>
-          <Button @click="handleRun" :loading="running" :disabled="!taskInput.trim()">
-            Execute
-          </Button>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">任务描述</label>
+                <textarea
+                  v-model="taskInput"
+                  class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  rows="3"
+                  placeholder="输入任务描述..."
+                  :disabled="running"
+                />
+              </div>
 
-          <!-- Status Bar -->
-          <div v-if="running || events.length > 0" class="bg-gray-50 rounded-lg p-3">
-            <div class="flex items-center gap-2 mb-2">
-              <span v-if="running" class="animate-pulse text-sm text-gray-500">执行中...</span>
-              <span v-else class="text-sm text-green-600">已完成</span>
-            </div>
+              <!-- Image Upload -->
+              <div>
+                <div class="flex items-center gap-2 mb-2">
+                  <label class="text-sm font-medium text-gray-700">图片</label>
+                  <button
+                    type="button"
+                    @click="triggerImageUpload"
+                    class="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-600"
+                    :disabled="running"
+                  >
+                    + 添加图片
+                  </button>
+                  <input
+                    ref="imageInputRef"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    class="hidden"
+                    @change="handleImageSelect"
+                  />
+                </div>
+                <div v-if="uploadedImages.length > 0" class="flex flex-wrap gap-2">
+                  <div
+                    v-for="(img, idx) in uploadedImages"
+                    :key="idx"
+                    class="relative group"
+                  >
+                    <img
+                      :src="img"
+                      class="w-20 h-20 object-cover rounded border border-gray-300"
+                    />
+                    <button
+                      @click="removeImage(idx)"
+                      class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                      :disabled="running"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+                <p v-else class="text-xs text-gray-400">未添加图片</p>
+              </div>
+              <Button @click="handleRun" :loading="running" :disabled="!taskInput.trim()">
+                执行
+              </Button>
 
-            <!-- Current Event -->
-            <div v-if="currentEvent" class="flex items-center gap-2 text-sm">
-              <span v-if="currentEvent.type === 'skill_loading'" class="flex items-center gap-1 text-blue-600">
-                <span>📦</span>
-                <span>加载 Skill: {{ currentEvent.skillName }}</span>
-              </span>
-              <span v-else-if="currentEvent.type === 'tool_call'" class="flex items-center gap-1 text-purple-600">
-                <span>🔧</span>
-                <span>调用工具: {{ currentEvent.toolName }}</span>
-              </span>
-            </div>
+              <!-- Simplified Status Bar -->
+              <div v-if="running || events.length > 0" class="bg-gray-50 rounded-lg p-3">
+                <div class="flex items-center gap-2 mb-2">
+                  <span v-if="running" class="animate-pulse text-sm text-blue-600 font-medium">执行中...</span>
+                  <span v-else class="text-sm text-green-600 font-medium">已完成</span>
+                </div>
 
-            <!-- Event Timeline (Collapsed) -->
-            <details v-if="events.length > 0" class="mt-2">
-              <summary class="text-sm text-gray-500 cursor-pointer hover:text-gray-700">
-                查看事件日志 ({{ events.length }})
-              </summary>
-              <div class="mt-2 space-y-1 text-xs max-h-32 overflow-y-auto">
-                <div
-                  v-for="(evt, idx) in events"
-                  :key="idx"
-                  class="flex items-start gap-2 py-1"
-                >
-                  <span>{{ getEventIcon(evt.type) }}</span>
-                  <span class="text-gray-600">{{ getEventLabel(evt.type) }}</span>
-                  <span v-if="evt.skillName" class="text-blue-600">{{ evt.skillName }}</span>
-                  <span v-else-if="evt.toolName" class="text-purple-600">{{ evt.toolName }}</span>
-                  <span v-else-if="evt.content" class="text-gray-500 truncate flex-1">
-                    {{ evt.content.substring(0, 50) }}{{ evt.content.length > 50 ? '...' : '' }}
+                <!-- Current Event -->
+                <div v-if="currentEvent" class="flex items-center gap-2 text-sm">
+                  <span v-if="currentEvent.type === 'skill_loading'" class="flex items-center gap-1 text-blue-600">
+                    <span>[加载 Skill]</span>
+                    <span>{{ currentEvent.skillName }}</span>
+                  </span>
+                  <span v-else-if="currentEvent.type === 'tool_call'" class="flex items-center gap-1 text-purple-600">
+                    <span>[调用工具]</span>
+                    <span>{{ currentEvent.toolName }}</span>
                   </span>
                 </div>
+
+                <!-- Event Timeline (Collapsed) -->
+                <details v-if="events.length > 0" class="mt-2">
+                  <summary class="text-sm text-gray-500 cursor-pointer hover:text-gray-700">
+                    查看事件日志 ({{ events.length }})
+                  </summary>
+                  <div class="mt-2 space-y-1 text-xs max-h-32 overflow-y-auto">
+                    <div
+                      v-for="(evt, idx) in events"
+                      :key="idx"
+                      class="flex items-start gap-2 py-1"
+                    >
+                      <span class="text-gray-600">{{ getEventLabel(evt.type) }}</span>
+                      <span v-if="evt.skillName" class="text-blue-600">{{ evt.skillName }}</span>
+                      <span v-else-if="evt.toolName" class="text-purple-600">{{ evt.toolName }}</span>
+                      <span v-else-if="evt.content" class="text-gray-500 truncate flex-1">
+                        {{ evt.content.substring(0, 50) }}{{ evt.content.length > 50 ? '...' : '' }}
+                      </span>
+                    </div>
+                  </div>
+                </details>
               </div>
-            </details>
-          </div>
 
-          <!-- Thinking Section (Collapsible) -->
-          <div v-if="thinkingContent" class="border border-gray-200 rounded-lg">
-            <button
-              @click="thinkingExpanded = !thinkingExpanded"
-              class="w-full px-4 py-2 flex items-center justify-between text-sm text-gray-600 hover:bg-gray-50"
-            >
-              <span>🤔 思考过程</span>
-              <span>{{ thinkingExpanded ? '收起' : '展开' }}</span>
-            </button>
-            <pre
-              v-if="thinkingExpanded"
-              class="px-4 py-2 text-xs text-gray-500 bg-gray-50 overflow-x-auto max-h-48"
-            >{{ thinkingContent }}</pre>
-          </div>
-
-          <!-- Conversation History -->
-          <div v-if="messages.length > 0" class="mb-4 space-y-3">
-            <h3 class="text-sm font-medium text-gray-700">对话历史</h3>
-            <div v-for="msg in messages" :key="msg.id"
-                 :class="['p-3 rounded-lg', msg.role === 'user' ? 'bg-blue-50' : 'bg-gray-50']">
-              <div class="flex items-center gap-2 mb-1">
-                <span :class="['text-xs font-medium', msg.role === 'user' ? 'text-blue-600' : 'text-gray-600']">
-                  {{ msg.role === 'user' ? '用户' : '助手' }}
-                </span>
-                <span class="text-xs text-gray-400">{{ new Date(msg.timestamp).toLocaleTimeString() }}</span>
+              <!-- Thinking Section (Always Expanded) -->
+              <div v-if="thinkingContent" class="border border-gray-200 rounded-lg">
+                <div class="px-4 py-2 text-sm text-gray-600 bg-gray-50 font-medium">
+                  思考过程
+                </div>
+                <pre
+                  class="px-4 py-2 text-xs text-gray-500 bg-gray-50 overflow-x-auto max-h-48"
+                >{{ thinkingContent }}</pre>
               </div>
-              <p class="text-sm text-gray-800 whitespace-pre-wrap">{{ msg.content }}</p>
-            </div>
-          </div>
 
-          <!-- Output -->
-          <div class="space-y-4">
-            <!-- Text Output -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Output</label>
-              <pre ref="outputRef" class="bg-gray-100 p-4 rounded text-sm overflow-x-auto max-h-96 whitespace-pre-wrap">Waiting for response...</pre>
-            </div>
+              <!-- Conversation History -->
+              <div v-if="messages.length > 0" class="mb-4 space-y-3">
+                <h3 class="text-sm font-medium text-gray-700">对话历史</h3>
+                <div v-for="msg in messages" :key="msg.id"
+                     :class="['p-3 rounded-lg', msg.role === 'user' ? 'bg-blue-50' : 'bg-gray-50']">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span :class="['text-xs font-medium', msg.role === 'user' ? 'text-blue-600' : 'text-gray-600']">
+                      {{ msg.role === 'user' ? '用户' : '助手' }}
+                    </span>
+                    <span class="text-xs text-gray-400">{{ new Date(msg.timestamp).toLocaleTimeString() }}</span>
+                  </div>
+                  <p class="text-sm text-gray-800 whitespace-pre-wrap">{{ msg.content }}</p>
+                </div>
+              </div>
 
-            <!-- Generated Images -->
-            <div v-if="generatedImages.length > 0" class="space-y-2">
-              <label class="block text-sm font-medium text-gray-700">Generated Images</label>
-              <div class="flex flex-wrap gap-3">
-                <div
-                  v-for="(img, idx) in generatedImages"
-                  :key="idx"
-                  class="relative group cursor-pointer"
-                  @click="openImageModal(img)"
-                >
-                  <img
-                    :src="img.url"
-                    :alt="img.alt"
-                    class="max-w-xs rounded border border-gray-300 hover:border-primary-500 transition-colors"
-                  />
-                  <div class="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 rounded-b">
-                    {{ img.alt || 'Generated image' }}
+              <!-- Output -->
+              <div class="space-y-4">
+                <!-- Text Output -->
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">输出</label>
+                  <pre ref="outputRef" class="bg-gray-100 p-4 rounded text-sm overflow-x-auto max-h-96 whitespace-pre-wrap">等待输入...</pre>
+                </div>
+
+                <!-- Generated Images -->
+                <div v-if="generatedImages.length > 0" class="space-y-2">
+                  <label class="block text-sm font-medium text-gray-700">生成的图片</label>
+                  <div class="flex flex-wrap gap-3">
+                    <div
+                      v-for="(img, idx) in generatedImages"
+                      :key="idx"
+                      class="relative group cursor-pointer"
+                      @click="openImageModal(img)"
+                    >
+                      <img
+                        :src="img.url"
+                        :alt="img.alt"
+                        class="max-w-xs rounded border border-gray-300 hover:border-primary-500 transition-colors"
+                      />
+                      <div class="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 rounded-b">
+                        {{ img.alt || 'Generated image' }}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
-      </Card>
+      </div>
 
       <!-- Image Modal -->
       <div

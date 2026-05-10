@@ -159,30 +159,48 @@ describe('Session Memory', () => {
 })
 
 describe('Thinking Display', () => {
-  describe('Collapsible State', () => {
-    it('should start with thinking collapsed', () => {
-      const thinkingExpanded = ref(false)
-      expect(thinkingExpanded.value).toBe(false)
+  describe('Always Expanded State', () => {
+    it('should render thinking content when present without requiring toggle', () => {
+      // Since thinking is always visible, verify that non-empty thinking is considered visible
+      const thinkingContent = 'Step 1: Analyze the problem\nStep 2: Formulate response'
+      const isThinkingVisible = thinkingContent.length > 0
+
+      expect(isThinkingVisible).toBe(true)
+      expect(thinkingContent).toContain('Step 1')
     })
 
-    it('should toggle collapse state', () => {
-      const thinkingExpanded = ref(false)
-      thinkingExpanded.value = !thinkingExpanded.value
-      expect(thinkingExpanded.value).toBe(true)
+    it('should accumulate thinking content across streaming events', () => {
+      // Simulate thinking content arriving across multiple SSE events
+      const thinkingEvents = [
+        { type: 'thinking', message: 'First thought: ' },
+        { type: 'thinking', message: 'Second thought: ' },
+        { type: 'thinking', message: 'Third thought: ' }
+      ]
 
-      thinkingExpanded.value = !thinkingExpanded.value
-      expect(thinkingExpanded.value).toBe(false)
+      let accumulatedThinking = ''
+      for (const event of thinkingEvents) {
+        if (event.type === 'thinking' && event.message) {
+          accumulatedThinking += event.message
+        }
+      }
+
+      expect(accumulatedThinking).toBe('First thought: Second thought: Third thought: ')
+      expect(accumulatedThinking.split(':').length - 1).toBe(3)
     })
 
-    it('should show character count when collapsed', () => {
-      const thinking = 'This is the actual thinking content'
-      const thinkingExpanded = ref(false)
+    it('should preserve complete thinking content in final message', () => {
+      // Verify the accumulated thinking is complete and not truncated
+      const thinkingParts = [
+        'Analyzing input',
+        'Formulating response',
+        'Finalizing answer'
+      ]
 
-      const characterCount = thinking.length
-      const shouldShowCount = !thinkingExpanded.value
+      const fullThinking = thinkingParts.join('')
 
-      expect(shouldShowCount).toBe(true)
-      expect(characterCount).toBe(35)
+      expect(fullThinking).toBe('Analyzing inputFormulating responseFinalizing answer')
+      expect(fullThinking).toContain('Analyzing input')
+      expect(fullThinking).toContain('Finalizing answer')
     })
   })
 })
