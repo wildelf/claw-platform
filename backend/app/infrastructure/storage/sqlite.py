@@ -1098,3 +1098,95 @@ class SQLiteStorage:
                 .limit(limit)
             )
             return [self._to_nudge_record(row) for row in result.scalars().all()]
+
+    # FTS5 memory search operations
+    async def create_memory_fts_table(self) -> None:
+        """创建 FTS5 虚拟表"""
+        from sqlalchemy import text
+        async with self.engine.begin() as conn:
+            await conn.execute(text("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(
+                    agent_id,
+                    memory_type,
+                    content,
+                    session_id,
+                    created_at,
+                    tokenize='porter unicode61'
+                )
+            """))
+
+    async def index_memory(
+        self,
+        agent_id: str,
+        memory_type: str,
+        content: str,
+        session_id: str,
+        created_at: str,
+    ) -> None:
+        """索引一条记忆"""
+        from sqlalchemy import text
+        async with self.engine.begin() as conn:
+            # 先删除已存在的相同记录
+            await conn.execute(
+                text("DELETE FROM memory_fts WHERE agent_id = ? AND memory_type = ? AND session_id = ?"),
+                (agent_id, memory_type, session_id),
+            )
+            # 插入新记录
+            await conn.execute(
+                text("INSERT INTO memory_fts (agent_id, memory_type, content, session_id, created_at) VALUES (?, ?, ?, ?, ?)"),
+                (agent_id, memory_type, content, session_id, created_at),
+            )
+
+    async def search_memories(
+        self,
+        agent_id: str,
+        query: str,
+        limit: int = 10,
+    ) -> List[dict]:
+        """搜索记忆"""
+        from sqlalchemy import text
+        async with self.engine.begin() as conn:
+            # 使用 FTS5 MATCH 查询
+            result = await conn.execute(
+                text("""
+                    SELECT agent_id, memory_type, content, session_id, created_at,
+                           bm25(memory_fts) as rank
+                    FROM memory_fts
+                    WHERE agent_id = ? AND memory_fts MATCH ?
+                    ORDER BY rank
+                    LIMIT ?
+                """),
+                (agent_id, query, limit),
+            )
+            rows = result.fetchall()
+            return [
+                {
+                    "agent_id": row[0],
+                    "memory_type": row[1],
+                    "content": row[2],
+                    "session_id": row[3],
+                    "created_at": row[4],
+                    "rank": row[5],
+                }
+                for row in rows
+            ]
+
+    async def delete_memory_from_fts(
+        self,
+        agent_id: str,
+        memory_type: str,
+        session_id: str = None,
+    ) -> None:
+        """从 FTS 索引中删除记忆"""
+        from sqlalchemy import text
+        async with self.engine.begin() as conn:
+            if session_id:
+                await conn.execute(
+                    text("DELETE FROM memory_fts WHERE agent_id = ? AND memory_type = ? AND session_id = ?"),
+                    (agent_id, memory_type, session_id),
+                )
+            else:
+                await conn.execute(
+                    text("DELETE FROM memory_fts WHERE agent_id = ? AND memory_type = ?"),
+                    (agent_id, memory_type),
+                )

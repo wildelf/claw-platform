@@ -382,10 +382,26 @@ async def get_agent_memories(agent_id: str):
 
 
 @router.get("/{agent_id}/memories/search")
-async def search_agent_memories(agent_id: str, q: str):
-    """跨会话搜索记忆（简单实现，返回空结果）"""
-    # TODO: 实现 FTS5 搜索
-    return {"results": []}
+async def search_agent_memories(agent_id: str, q: str, limit: int = 10):
+    """跨会话搜索记忆"""
+    from app.application.memory.memory_search import MemorySearch
+    from app.api.deps import get_storage
+
+    storage = await get_storage()
+    search = MemorySearch(storage=storage)
+
+    results = await search.search(agent_id=agent_id, query=q, limit=limit)
+
+    return {
+        "results": [
+            {
+                "type": r.memory_type,
+                "content": r.content,
+                "relevance_score": r.relevance_score,
+            }
+            for r in results
+        ]
+    }
 
 
 @router.post("/{agent_id}/nudge")
