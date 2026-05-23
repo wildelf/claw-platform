@@ -59,12 +59,15 @@ async def list_skills(
 async def get_skill(
     skill_id: str,
     storage: Storage,
+    user_id: UserId,
 ) -> Skill:
     """Get skill by ID."""
     service = SkillService(storage)
     skill = await service.get(skill_id)
     if not skill:
         raise HTTPException(status_code=404, detail="Skill not found")
+    if skill.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this skill")
     return skill
 
 
@@ -73,13 +76,17 @@ async def update_skill(
     skill_id: str,
     request: UpdateSkillRequest,
     storage: Storage,
+    user_id: UserId,
 ) -> Skill:
     """Update skill."""
     service = SkillService(storage)
-    data = request.model_dump(exclude_unset=True)
-    skill = await service.update(skill_id, data)
+    skill = await service.get(skill_id)
     if not skill:
         raise HTTPException(status_code=404, detail="Skill not found")
+    if skill.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this skill")
+    data = request.model_dump(exclude_unset=True)
+    skill = await service.update(skill_id, data)
     return skill
 
 
@@ -87,12 +94,16 @@ async def update_skill(
 async def delete_skill(
     skill_id: str,
     storage: Storage,
+    user_id: UserId,
 ) -> dict:
     """Delete skill."""
     service = SkillService(storage)
-    deleted = await service.delete(skill_id)
-    if not deleted:
+    skill = await service.get(skill_id)
+    if not skill:
         raise HTTPException(status_code=404, detail="Skill not found")
+    if skill.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this skill")
+    deleted = await service.delete(skill_id)
     return {"ok": True}
 
 
@@ -100,9 +111,15 @@ async def delete_skill(
 async def list_skill_files(
     skill_id: str,
     storage: Storage,
+    user_id: UserId,
 ) -> List[str]:
     """List skill files."""
     service = SkillService(storage)
+    skill = await service.get(skill_id)
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    if skill.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this skill")
     return await service.list_files(skill_id)
 
 
@@ -111,12 +128,18 @@ async def get_skill_file(
     skill_id: str,
     filename: str,
     storage: Storage,
+    user_id: UserId,
 ) -> Response:
     """Get skill file content."""
     # Replace encoded slashes - FastAPI already decodes, but if the path
     # was split we need to reconstruct
     actual_filename = filename.replace('_SLASH_', '/')
     service = SkillService(storage)
+    skill = await service.get(skill_id)
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    if skill.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this skill")
     content = await service.get_file(skill_id, actual_filename)
     if content is None:
         raise HTTPException(status_code=404, detail="File not found")
@@ -128,10 +151,16 @@ async def save_skill_file(
     skill_id: str,
     filename: str,
     storage: Storage,
+    user_id: UserId,
     file: UploadFile = File(...),
 ) -> dict:
     """Save skill file via multipart upload."""
     service = SkillService(storage)
+    skill = await service.get(skill_id)
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    if skill.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this skill")
     content = await file.read()
     await service.save_file(skill_id, filename, content)
     return {"ok": True}
@@ -147,9 +176,15 @@ async def save_skill_file_content(
     filename: str,
     request: SaveFileRequest,
     storage: Storage,
+    user_id: UserId,
 ) -> dict:
     """Save skill file content via JSON body."""
     service = SkillService(storage)
+    skill = await service.get(skill_id)
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    if skill.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this skill")
     await service.save_file(skill_id, filename, request.content.encode("utf-8"))
     return {"ok": True}
 
@@ -159,9 +194,15 @@ async def delete_skill_file(
     skill_id: str,
     filename: str,
     storage: Storage,
+    user_id: UserId,
 ) -> dict:
     """Delete skill file."""
     service = SkillService(storage)
+    skill = await service.get(skill_id)
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    if skill.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this skill")
     await service.delete_file(skill_id, filename)
     return {"ok": True}
 

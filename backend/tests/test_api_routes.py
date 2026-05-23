@@ -10,15 +10,14 @@ from app.main import app
 class TestAgentAPI:
     """Tests for agent API routes."""
 
-    def test_list_agents(self):
-        """GET /api/agents should be accessible."""
+    def test_list_agents(self, auth_headers):
+        """GET /api/agents should require auth."""
         client = TestClient(app)
-        response = client.get("/api/agents")
-        # Just verify the endpoint is accessible (returns 200 or auth error)
+        response = client.get("/api/agents", headers=auth_headers)
         assert response.status_code in [200, 401]
 
-    def test_create_agent(self):
-        """POST /api/agents should be accessible."""
+    def test_create_agent(self, auth_headers):
+        """POST /api/agents should require auth."""
         client = TestClient(app)
         response = client.post(
             "/api/agents",
@@ -27,135 +26,140 @@ class TestAgentAPI:
                 "role": "assistant",
                 "description": "A test agent",
             },
+            headers=auth_headers,
         )
-        # Returns 200 if auth passes
         assert response.status_code in [200, 401]
 
-    def test_get_agent_not_found(self):
+    def test_get_agent_not_found(self, auth_headers):
         """GET /api/agents/{id} should return 404 for non-existent."""
         client = TestClient(app)
-        response = client.get("/api/agents/nonexistent-id")
+        response = client.get("/api/agents/nonexistent-id", headers=auth_headers)
         assert response.status_code == 404
 
-    def test_update_agent_not_found(self):
+    def test_update_agent_not_found(self, auth_headers):
         """PUT /api/agents/{id} should return 404 for non-existent."""
         client = TestClient(app)
         response = client.put(
             "/api/agents/nonexistent-id",
             json={"name": "updated"},
+            headers=auth_headers,
         )
         assert response.status_code == 404
 
-    def test_delete_agent_not_found(self):
+    def test_delete_agent_not_found(self, auth_headers):
         """DELETE /api/agents/{id} should return 404 for non-existent."""
         client = TestClient(app)
-        response = client.delete("/api/agents/nonexistent-id")
+        response = client.delete("/api/agents/nonexistent-id", headers=auth_headers)
         assert response.status_code == 404
 
 
 class TestSkillAPI:
     """Tests for skill API routes."""
 
-    def test_list_skills(self):
-        """GET /api/skills should be accessible."""
+    def test_list_skills(self, auth_headers):
+        """GET /api/skills should require auth."""
         client = TestClient(app)
-        response = client.get("/api/skills")
+        response = client.get("/api/skills", headers=auth_headers)
         assert response.status_code in [200, 401]
 
-    def test_create_skill(self):
-        """POST /api/skills should be accessible."""
+    def test_create_skill(self, auth_headers):
+        """POST /api/skills should require auth."""
         client = TestClient(app)
         response = client.post(
             "/api/skills",
             json={"name": "test-skill", "description": "A test skill"},
+            headers=auth_headers,
         )
         assert response.status_code in [200, 401]
 
-    def test_get_skill_not_found(self):
+    def test_get_skill_not_found(self, auth_headers):
         """GET /api/skills/{id} should return 404 for non-existent."""
         client = TestClient(app)
-        response = client.get("/api/skills/nonexistent-id")
+        response = client.get("/api/skills/nonexistent-id", headers=auth_headers)
         assert response.status_code == 404
 
-    def test_update_skill_not_found(self):
+    def test_update_skill_not_found(self, auth_headers):
         """PUT /api/skills/{id} should return 404 for non-existent."""
         client = TestClient(app)
         response = client.put(
             "/api/skills/nonexistent-id",
             json={"name": "updated"},
+            headers=auth_headers,
         )
         assert response.status_code == 404
 
-    def test_delete_skill_not_found(self):
+    def test_delete_skill_not_found(self, auth_headers):
         """DELETE /api/skills/{id} should return 404 for non-existent."""
         client = TestClient(app)
-        response = client.delete("/api/skills/nonexistent-id")
+        response = client.delete("/api/skills/nonexistent-id", headers=auth_headers)
         assert response.status_code == 404
 
-    def test_list_skill_files(self):
+    def test_list_skill_files(self, auth_headers):
         """GET /api/skills/{id}/files should be accessible."""
         client = TestClient(app)
-        response = client.get("/api/skills/skill-123/files")
+        response = client.get("/api/skills/skill-123/files", headers=auth_headers)
         assert response.status_code in [200, 401, 404]
 
-    def test_get_skill_file_not_found(self):
+    def test_get_skill_file_not_found(self, auth_headers):
         """GET /api/skills/{id}/files/{filename} should return 404 for non-existent."""
         client = TestClient(app)
-        response = client.get("/api/skills/skill-123/files/nonexistent.txt")
+        response = client.get("/api/skills/skill-123/files/nonexistent.txt", headers=auth_headers)
         assert response.status_code == 404
 
 
 class TestToolAPI:
     """Tests for tool API routes."""
 
-    def test_list_tools(self):
-        """GET /api/tools should be accessible."""
+    def test_list_tools(self, auth_headers):
+        """GET /api/tools should require auth."""
         client = TestClient(app)
-        response = client.get("/api/tools")
+        response = client.get("/api/tools", headers=auth_headers)
         assert response.status_code in [200, 401]
 
-    def test_create_tool(self):
-        """POST /api/tools should be accessible."""
+    def test_create_tool(self, auth_headers):
+        """POST /api/tools should require auth."""
         client = TestClient(app)
         response = client.post(
             "/api/tools",
             json={"name": "test-tool", "type": "custom"},
+            headers=auth_headers,
         )
         assert response.status_code in [200, 401]
 
-    def test_get_tool_not_found(self):
+    def test_get_tool_not_found(self, auth_headers):
         """GET /api/tools/{id} should return 404 for non-existent."""
         client = TestClient(app)
-        response = client.get("/api/tools/nonexistent-id")
+        response = client.get("/api/tools/nonexistent-id", headers=auth_headers)
         assert response.status_code == 404
 
-    def test_update_tool_not_found(self):
+    def test_update_tool_not_found(self, auth_headers):
         """PUT /api/tools/{id} should return 404 for non-existent."""
         client = TestClient(app)
         response = client.put(
             "/api/tools/nonexistent-id",
             json={"name": "updated"},
+            headers=auth_headers,
         )
         assert response.status_code == 404
 
-    def test_delete_tool_not_found(self):
+    def test_delete_tool_not_found(self, auth_headers):
         """DELETE /api/tools/{id} should return 404 for non-existent."""
         client = TestClient(app)
-        response = client.delete("/api/tools/nonexistent-id")
+        response = client.delete("/api/tools/nonexistent-id", headers=auth_headers)
         assert response.status_code == 404
 
 
 class TestModelAPI:
     """Tests for model config API routes."""
 
-    def test_list_models(self):
-        """GET /api/models should be accessible."""
+    def test_list_models(self, auth_headers):
+        """GET /api/models should require auth."""
         client = TestClient(app)
-        response = client.get("/api/models")
+        response = client.get("/api/models", headers=auth_headers)
         assert response.status_code in [200, 401]
 
-    def test_create_model(self):
-        """POST /api/models should be accessible."""
+    def test_create_model(self, auth_headers):
+        """POST /api/models should require auth."""
         client = TestClient(app)
         response = client.post(
             "/api/models",
@@ -164,41 +168,43 @@ class TestModelAPI:
                 "type": "openai",
                 "model": "gpt-4",
             },
+            headers=auth_headers,
         )
-        assert response.status_code in [200, 401]
+        assert response.status_code in [201, 401]
 
-    def test_get_model_not_found(self):
+    def test_get_model_not_found(self, auth_headers):
         """GET /api/models/{id} should return 404 for non-existent."""
         client = TestClient(app)
-        response = client.get("/api/models/nonexistent-id")
+        response = client.get("/api/models/nonexistent-id", headers=auth_headers)
         assert response.status_code == 404
 
-    def test_update_model_not_found(self):
+    def test_update_model_not_found(self, auth_headers):
         """PUT /api/models/{id} should return 404 for non-existent."""
         client = TestClient(app)
         response = client.put(
             "/api/models/nonexistent-id",
             json={"name": "updated"},
+            headers=auth_headers,
         )
         assert response.status_code == 404
 
-    def test_delete_model_not_found(self):
+    def test_delete_model_not_found(self, auth_headers):
         """DELETE /api/models/{id} should return 404 for non-existent."""
         client = TestClient(app)
-        response = client.delete("/api/models/nonexistent-id")
+        response = client.delete("/api/models/nonexistent-id", headers=auth_headers)
         assert response.status_code == 404
 
 
 class TestFeedbackAPI:
     """Tests for feedback API routes."""
 
-    def test_list_feedback(self):
-        """GET /api/feedback should be accessible."""
+    def test_list_feedback(self, auth_headers):
+        """GET /api/feedback should require auth."""
         client = TestClient(app)
-        response = client.get("/api/feedback")
+        response = client.get("/api/feedback", headers=auth_headers)
         assert response.status_code in [200, 401]
 
-    def test_create_feedback_requires_valid_rating(self):
+    def test_create_feedback_requires_valid_rating(self, auth_headers):
         """POST /api/feedback should return 422 for invalid rating."""
         client = TestClient(app)
         response = client.post(
@@ -209,14 +215,15 @@ class TestFeedbackAPI:
                 "result": "Success",
                 "rating": "invalid_rating",
             },
+            headers=auth_headers,
         )
         # Returns 422 for validation error
         assert response.status_code == 422
 
-    def test_get_feedback_not_found(self):
+    def test_get_feedback_not_found(self, auth_headers):
         """GET /api/feedback/{id} should return 404 for non-existent."""
         client = TestClient(app)
-        response = client.get("/api/feedback/nonexistent-id")
+        response = client.get("/api/feedback/nonexistent-id", headers=auth_headers)
         assert response.status_code == 404
 
 

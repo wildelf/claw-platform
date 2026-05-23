@@ -108,12 +108,15 @@ async def list_tools(
 async def get_tool(
     tool_id: str,
     storage: Storage,
+    user_id: UserId,
 ) -> Tool:
     """Get tool by ID."""
     service = ToolService(storage)
     tool = await service.get(tool_id)
     if not tool:
         raise HTTPException(status_code=404, detail="Tool not found")
+    if tool.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this tool")
     return tool
 
 
@@ -122,9 +125,15 @@ async def update_tool(
     tool_id: str,
     request: UpdateToolRequest,
     storage: Storage,
+    user_id: UserId,
 ) -> Tool:
     """Update tool."""
     service = ToolService(storage)
+    tool = await service.get(tool_id)
+    if not tool:
+        raise HTTPException(status_code=404, detail="Tool not found")
+    if tool.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this tool")
     data = request.model_dump(exclude_unset=True)
 
     # Convert nested MCP config
@@ -147,8 +156,6 @@ async def update_tool(
         data['args'] = [ToolArg(name=a['name'], position=a.get('position', 'body'), required=a.get('required', False), arg_type=a.get('type', 'string')) for a in data['args']]
 
     tool = await service.update(tool_id, data)
-    if not tool:
-        raise HTTPException(status_code=404, detail="Tool not found")
     return tool
 
 
@@ -156,10 +163,14 @@ async def update_tool(
 async def delete_tool(
     tool_id: str,
     storage: Storage,
+    user_id: UserId,
 ) -> dict:
     """Delete tool."""
     service = ToolService(storage)
-    deleted = await service.delete(tool_id)
-    if not deleted:
+    tool = await service.get(tool_id)
+    if not tool:
         raise HTTPException(status_code=404, detail="Tool not found")
+    if tool.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this tool")
+    deleted = await service.delete(tool_id)
     return {"ok": True}

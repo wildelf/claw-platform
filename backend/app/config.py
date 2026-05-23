@@ -1,5 +1,7 @@
 """Configuration loader for Claw Platform."""
 
+import os
+import re
 from pathlib import Path
 
 import yaml
@@ -7,11 +9,41 @@ from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
 
+def _resolve_env_vars(value):
+    """Resolve ${ENV_VAR} placeholders in string values."""
+    if not isinstance(value, str):
+        return value
+
+    def replacer(match):
+        env_var = match.group(1)
+        env_value = os.environ.get(env_var)
+        if env_value is None:
+            raise ValueError(
+                f"Environment variable '{env_var}' is not set. "
+                f"Set it or provide an actual value in config.yaml."
+            )
+        return env_value
+
+    return re.sub(r'\$\{(\w+)\}', replacer, value)
+
+
+def _resolve_all_env_vars(obj):
+    """Recursively resolve environment variables in a nested data structure."""
+    if isinstance(obj, dict):
+        return {k: _resolve_all_env_vars(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_resolve_all_env_vars(item) for item in obj]
+    elif isinstance(obj, str):
+        return _resolve_env_vars(obj)
+    return obj
+
+
 class AppConfig(BaseModel):
     name: str = "claw-platform"
     debug: bool = False
     host: str = "0.0.0.0"
     port: int = 8000
+    allowed_origins: list[str] | None = None
 
 
 class SQLiteConfig(BaseModel):
@@ -114,6 +146,9 @@ class Settings(BaseSettings):
                 data = yaml.safe_load(f)
             except yaml.YAMLError as e:
                 raise ValueError(f"Failed to parse YAML config file: {e}") from e
+
+        # Resolve ${ENV_VAR} placeholders
+        data = _resolve_all_env_vars(data)
 
         return cls(**data)
 

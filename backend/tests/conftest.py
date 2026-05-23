@@ -8,6 +8,7 @@ import pytest
 import pytest_asyncio
 
 from app.infrastructure.storage.sqlite import SQLiteStorage
+from app.application.auth_service import AuthService
 
 
 @pytest.fixture
@@ -33,3 +34,25 @@ def event_loop():
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
+
+
+@pytest.fixture
+def auth_service():
+    """Create an AuthService instance for token generation."""
+    return AuthService()
+
+
+@pytest.fixture
+def valid_token(auth_service):
+    """Generate a valid JWT token for testing."""
+    return auth_service.create_access_token(
+        user_id="test-user-id-123",
+        username="testuser",
+        role="user",
+    )
+
+
+@pytest.fixture
+def auth_headers(valid_token):
+    """Return headers with valid auth token."""
+    return {"Authorization": f"Bearer {valid_token}"}

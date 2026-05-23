@@ -5,11 +5,12 @@ import json
 import logging
 from typing import List
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.api.deps import Storage, UserId
+from app.api.rate_limiter import rate_limit_agent_run
 from app.application.agent_service import AgentService
 from app.application.conversation_memory_service import ConversationMemoryService, summarize_conversation_task
 from app.domain.agent import Agent
@@ -95,12 +96,15 @@ async def list_agents(
 async def get_agent(
     agent_id: str,
     storage: Storage,
+    user_id: UserId,
 ) -> Agent:
     """Get agent by ID."""
     service = AgentService(storage)
     agent = await service.get(agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
+    if agent.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this agent")
     return agent
 
 
@@ -109,12 +113,16 @@ async def update_agent(
     agent_id: str,
     data: UpdateAgent,
     storage: Storage,
+    user_id: UserId,
 ) -> Agent:
     """Update agent."""
     service = AgentService(storage)
-    agent = await service.update(agent_id, data.model_dump(exclude_unset=True))
+    agent = await service.get(agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
+    if agent.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this agent")
+    agent = await service.update(agent_id, data.model_dump(exclude_unset=True))
     return agent
 
 
@@ -122,12 +130,16 @@ async def update_agent(
 async def delete_agent(
     agent_id: str,
     storage: Storage,
+    user_id: UserId,
 ) -> dict:
     """Delete agent."""
     service = AgentService(storage)
-    deleted = await service.delete(agent_id)
-    if not deleted:
+    agent = await service.get(agent_id)
+    if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
+    if agent.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this agent")
+    deleted = await service.delete(agent_id)
     return {"ok": True}
 
 
@@ -140,11 +152,12 @@ class RunAgentRequest(BaseModel):
     session_id: str | None = Field(default=None, description="会话ID，用于多轮对话继续")
 
 
-@router.post("/{agent_id}/run")
+@router.post("/{agent_id}/run", dependencies=[Depends(rate_limit_agent_run)])
 async def run_agent(
     agent_id: str,
     request: RunAgentRequest,
     storage: Storage,
+    user_id: UserId,
 ):
     """Run agent task.
 
@@ -156,6 +169,8 @@ async def run_agent(
     agent = await service.get(agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
+    if agent.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to run this agent")
 
     # Validate model_config_id if provided
     if request.model_config_id:
@@ -258,11 +273,12 @@ async def run_agent(
     )
 
 
-@router.post("/{agent_id}/run-with-feedback")
+@router.post("/{agent_id}/run-with-feedback", dependencies=[Depends(rate_limit_agent_run)])
 async def run_agent_with_feedback(
     agent_id: str,
     request: RunAgentRequest,
     storage: Storage,
+    user_id: UserId,
 ):
     """Run agent and submit feedback when task completes.
 
@@ -276,6 +292,8 @@ async def run_agent_with_feedback(
     agent = await service.get(agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
+    if agent.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to run this agent")
 
     # Validate model_config_id if provided
     if request.model_config_id:
@@ -359,6 +377,8 @@ async def run_agent_with_feedback(
 @router.post("/{agent_id}/stop")
 async def stop_agent(
     agent_id: str,
+    storage: Storage,
+    user_id: UserId,
 ) -> dict:
     """Stop a running agent task.
 
@@ -366,6 +386,12 @@ async def stop_agent(
     will check the cancel flag and raise CancelledError.
     The streaming response will receive a 'cancelled' event.
     """
+    service = AgentService(storage)
+    agent = await service.get(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    if agent.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to stop this agent")
     registry = get_agent_registry()
     if await registry.request_agent_cancel(agent_id):
         return {"status": "stopped", "agent_id": agent_id}
@@ -373,8 +399,18 @@ async def stop_agent(
 
 
 @router.get("/{agent_id}/memories")
-async def get_agent_memories(agent_id: str):
+async def get_agent_memories(
+    agent_id: str,
+    storage: Storage,
+    user_id: UserId,
+):
     """获取该 Agent 的所有记忆"""
+    service = AgentService(storage)
+    agent = await service.get(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    if agent.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this agent's memories")
     from app.application.memory.memory_persistence import MemoryPersistence
     persistence = MemoryPersistence()
     memories = await persistence.get_all_memories(agent_id)
@@ -382,16 +418,23 @@ async def get_agent_memories(agent_id: str):
 
 
 @router.get("/{agent_id}/memories/search")
-async def search_agent_memories(agent_id: str, q: str, limit: int = 10):
+async def search_agent_memories(
+    agent_id: str,
+    q: str,
+    storage: Storage,
+    user_id: UserId,
+    limit: int = 10,
+):
     """跨会话搜索记忆"""
+    service = AgentService(storage)
+    agent = await service.get(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    if agent.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this agent's memories")
     from app.application.memory.memory_search import MemorySearch
-    from app.api.deps import get_storage
-
-    storage = await get_storage()
     search = MemorySearch(storage=storage)
-
     results = await search.search(agent_id=agent_id, query=q, limit=limit)
-
     return {
         "results": [
             {
@@ -405,14 +448,21 @@ async def search_agent_memories(agent_id: str, q: str, limit: int = 10):
 
 
 @router.post("/{agent_id}/nudge")
-async def trigger_nudge_check(agent_id: str, request: dict):
+async def trigger_nudge_check(
+    agent_id: str,
+    request: dict,
+    storage: Storage,
+    user_id: UserId,
+):
     """手动触发 nudge 检查"""
+    service = AgentService(storage)
+    agent = await service.get(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    if agent.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to trigger nudge on this agent")
     from app.application.self_nudge_service import SelfNudgeService
-    from app.api.deps import get_storage
-
-    storage = await get_storage()
     service = SelfNudgeService(storage=storage)
-
     result = await service.process(
         agent_id=agent_id,
         session_id=request.get("session_id", ""),
@@ -420,7 +470,6 @@ async def trigger_nudge_check(agent_id: str, request: dict):
         user_input=request.get("user_input", ""),
         agent_output=request.get("agent_output", ""),
     )
-
     return {
         "nudge_triggered": result.nudge_triggered,
         "memory_written": result.memory_written,

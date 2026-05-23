@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.domain.base import EntityId
-from app.domain.user import User, UserRole
+from app.domain.user import UserRole
 from app.infrastructure.storage.sqlite import SQLiteStorage
 from app.application.skill_service import SkillService
 
@@ -38,7 +38,7 @@ async def get_skill_service(storage: Storage) -> SkillService:
 SkillServiceDep = Annotated[SkillService, Depends(get_skill_service)]
 
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 class AuthContext:
@@ -55,8 +55,16 @@ async def get_current_user(
     """Extract and validate JWT token, returning auth context.
 
     Depends on HTTPBearer to extract the token from Authorization header.
+    Raises 401 if no token is provided or token is invalid.
     """
     from app.application.auth_service import AuthService
+
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     token = credentials.credentials
     auth_service = AuthService()
@@ -79,6 +87,40 @@ async def get_current_user(
             detail="Invalid token payload",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    return AuthContext(
+        user_id=EntityId(user_id),
+        username=username,
+        role=role,
+    )
+
+
+async def get_current_user_optional(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> AuthContext | None:
+    """Extract and validate JWT token, returning None if not provided.
+
+    Used for endpoints that work with or without authentication.
+    Does NOT raise 401 if no token is provided.
+    """
+    if credentials is None:
+        return None
+
+    from app.application.auth_service import AuthService
+
+    token = credentials.credentials
+    auth_service = AuthService()
+    payload = auth_service.verify_token(token)
+
+    if payload is None:
+        return None
+
+    user_id = payload.get("sub")
+    username = payload.get("username")
+    role = payload.get("role")
+
+    if not user_id or not username:
+        return None
 
     return AuthContext(
         user_id=EntityId(user_id),

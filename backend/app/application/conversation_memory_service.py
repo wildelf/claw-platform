@@ -45,6 +45,9 @@ class ConversationMemoryService:
     def __init__(self, storage: StorageAdapter):
         self.storage = storage
 
+    async def get_memory_by_id(self, memory_id: str) -> Optional[ConversationMemory]:
+        return await self.storage.get_conversation_memory(memory_id)
+
     async def get_memories(self, agent_id: str, session_id: str, limit: int = 10) -> List[ConversationMemory]:
         return await self.storage.get_conversation_memories(agent_id, session_id, limit=limit)
 

@@ -6,7 +6,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
-from app.api.deps import Storage
+from app.api.deps import Storage, UserId
+from app.application.agent_service import AgentService
 from app.application.log_service import LogService
 from app.domain.log import LogEntry, LogActionType
 
@@ -46,6 +47,7 @@ class LogEntryResponse(BaseModel):
 @router.get("", response_model=List[LogEntryResponse])
 async def query_logs(
     storage: Storage,
+    user_id: UserId,
     agent_id: Optional[str] = Query(None, description="Filter by agent ID"),
     session_id: Optional[str] = Query(None, description="Filter by session ID"),
     action_type: Optional[str] = Query(None, description="Filter by action type"),
@@ -55,6 +57,14 @@ async def query_logs(
 ) -> List[LogEntryResponse]:
     """Query log entries with optional filters. IT uses this for audit/debugging."""
     service = LogService(storage)
+    agent_service = AgentService(storage)
+
+    # If agent_id filter is provided, verify ownership first
+    if agent_id:
+        agent = await agent_service.get(agent_id)
+        if not agent or agent.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized to access logs for this agent")
+
     entries = await service.query(
         agent_id=agent_id,
         session_id=session_id,
@@ -63,12 +73,27 @@ async def query_logs(
         offset=offset,
         limit=limit,
     )
+
+    # If no agent_id filter, verify each entry's agent ownership
+    if not agent_id:
+        user_agent_ids = set()
+        filtered = []
+        for entry in entries:
+            if entry.agent_id not in user_agent_ids:
+                agent = await agent_service.get(entry.agent_id)
+                if agent and agent.user_id == user_id:
+                    user_agent_ids.add(entry.agent_id)
+            if entry.agent_id in user_agent_ids:
+                filtered.append(entry)
+        entries = filtered
+
     return [LogEntryResponse.from_entry(e) for e in entries]
 
 
 @router.post("", response_model=LogEntryResponse)
 async def create_log(
     storage: Storage,
+    user_id: UserId,
     agent_id: str,
     session_id: str,
     action_type: str,
@@ -79,6 +104,10 @@ async def create_log(
     error: str | None = None,
 ) -> LogEntryResponse:
     """Write a log entry. Used by agent runtime to emit events."""
+    agent_service = AgentService(storage)
+    agent = await agent_service.get(agent_id)
+    if not agent or agent.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to create logs for this agent")
     service = LogService(storage)
     entry = await service.emit(
         agent_id=agent_id,

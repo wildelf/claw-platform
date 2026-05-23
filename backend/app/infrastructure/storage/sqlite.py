@@ -1017,6 +1017,13 @@ class SQLiteStorage:
             )
             return [self._to_conversation_memory(row) for row in result.scalars().all()]
 
+    async def get_conversation_memory(self, id: str) -> Optional[ConversationMemory]:
+        async with self.async_session() as session:
+            result = await session.get(ConversationMemoryModel, id)
+            if result:
+                return self._to_conversation_memory(result)
+            return None
+
     async def delete_conversation_memory(self, id: str) -> None:
         async with self.async_session() as session:
             from sqlalchemy import delete

@@ -15,6 +15,35 @@ from pydantic import BaseModel, Field
 router = APIRouter(prefix="/models", tags=["models"])
 
 
+class ModelConfigResponse(BaseModel):
+    """Model config response that excludes sensitive api_key field."""
+    id: str
+    name: str
+    type: str
+    model: str
+    base_url: Optional[str] = None
+    config: dict = Field(default_factory=dict)
+    modality: str
+    user_id: str
+    created_at: str
+    updated_at: str
+
+    @classmethod
+    def from_model(cls, config: ModelConfig) -> "ModelConfigResponse":
+        return cls(
+            id=str(config.id),
+            name=config.name,
+            type=config.type.value if hasattr(config.type, 'value') else str(config.type),
+            model=config.model,
+            base_url=config.base_url,
+            config=config.config or {},
+            modality=config.modality.value if hasattr(config.modality, 'value') else str(config.modality),
+            user_id=str(config.user_id) if config.user_id else "",
+            created_at=config.created_at.isoformat() if config.created_at else "",
+            updated_at=config.updated_at.isoformat() if config.updated_at else "",
+        )
+
+
 class CreateModelRequest(BaseModel):
     name: str = Field(max_length=100)
     type: ModelProviderType = ModelProviderType.OPENAI
@@ -35,12 +64,12 @@ class UpdateModelRequest(BaseModel):
     modality: Optional[str] = None
 
 
-@router.post("", response_model=ModelConfig)
+@router.post("", response_model=ModelConfigResponse, status_code=201)
 async def create_model(
     request: CreateModelRequest,
     storage: Storage,
     user_id: UserId,
-) -> ModelConfig:
+) -> ModelConfigResponse:
     """Create a new model config."""
     config = ModelConfig(
         name=request.name,
@@ -53,57 +82,70 @@ async def create_model(
         user_id=user_id,
     )
     service = ModelService(storage)
-    return await service.create(config)
+    created = await service.create(config)
+    return ModelConfigResponse.from_model(created)
 
 
-@router.get("", response_model=List[ModelConfig])
+@router.get("", response_model=List[ModelConfigResponse])
 async def list_models(
     storage: Storage,
     user_id: UserId,
-) -> List[ModelConfig]:
+) -> List[ModelConfigResponse]:
     """List model configs for current user."""
     service = ModelService(storage)
-    return await service.list_by_user(user_id)
+    configs = await service.list_by_user(user_id)
+    return [ModelConfigResponse.from_model(c) for c in configs]
 
 
-@router.get("/{model_id}", response_model=ModelConfig)
+@router.get("/{model_id}", response_model=ModelConfigResponse)
 async def get_model(
     model_id: str,
     storage: Storage,
-) -> ModelConfig:
+    user_id: UserId,
+) -> ModelConfigResponse:
     """Get model config by ID."""
     service = ModelService(storage)
     config = await service.get(model_id)
     if not config:
         raise HTTPException(status_code=404, detail="Model not found")
-    return config
+    if config.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this model")
+    return ModelConfigResponse.from_model(config)
 
 
-@router.put("/{model_id}", response_model=ModelConfig)
+@router.put("/{model_id}", response_model=ModelConfigResponse)
 async def update_model(
     model_id: str,
     request: UpdateModelRequest,
     storage: Storage,
-) -> ModelConfig:
+    user_id: UserId,
+) -> ModelConfigResponse:
     """Update model config."""
     service = ModelService(storage)
-    data = request.model_dump(exclude_unset=True)
-    config = await service.update(model_id, data)
+    config = await service.get(model_id)
     if not config:
         raise HTTPException(status_code=404, detail="Model not found")
-    return config
+    if config.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this model")
+    data = request.model_dump(exclude_unset=True)
+    config = await service.update(model_id, data)
+    return ModelConfigResponse.from_model(config)
 
 
 @router.delete("/{model_id}")
 async def delete_model(
     model_id: str,
     storage: Storage,
+    user_id: UserId,
 ) -> dict:
     """Delete model config."""
     service = ModelService(storage)
-    deleted = await service.delete(model_id)
-    if not deleted:
+    config = await service.get(model_id)
+    if not config:
         raise HTTPException(status_code=404, detail="Model not found")
+    if config.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this model")
+    deleted = await service.delete(model_id)
     return {"ok": True}
 
 
