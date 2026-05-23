@@ -87,6 +87,26 @@ const router = createRouter({
       path: '/register',
       name: 'register',
       component: () => import('@/views/RegisterView.vue')
+    },
+    {
+      path: '/employee-profiles',
+      name: 'employee-profiles',
+      component: () => import('@/views/EmployeeProfilesView.vue')
+    },
+    {
+      path: '/employee-profiles/create',
+      name: 'employee-profile-create',
+      component: () => import('@/views/EmployeeProfileCreateView.vue')
+    },
+    {
+      path: '/employee-profiles/:id',
+      name: 'employee-profile-detail',
+      component: () => import('@/views/EmployeeProfileDetailView.vue')
+    },
+    {
+      path: '/operations',
+      name: 'operations',
+      component: () => import('@/views/OperationsDashboardView.vue')
     }
   ]
 })
