@@ -109,22 +109,22 @@ function handleCancel() {
   <div class="max-w-4xl mx-auto space-y-6">
     <div class="flex items-center gap-2">
       <Button variant="secondary" @click="handleCancel">Cancel</Button>
-      <h1 class="text-2xl font-bold text-gray-900">Edit Skill</h1>
+      <h1 class="text-2xl font-bold text-text-primary">Edit Skill</h1>
     </div>
 
     <Card v-if="loading" class="text-center py-8">
-      <p class="text-gray-500">Loading...</p>
+      <p class="text-text-muted">Loading...</p>
     </Card>
 
-    <Card v-else-if="error" class="bg-red-50">
-      <p class="text-red-600">{{ error }}</p>
+    <Card v-else-if="error" class="bg-status-error/10">
+      <p class="text-status-error">{{ error }}</p>
     </Card>
 
     <template v-else>
       <Card title="Skill Information">
         <form @submit.prevent="handleSubmit" class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+            <label class="block text-sm font-medium text-text-secondary mb-1">Name *</label>
             <Input
               v-model="form.name"
               placeholder="Enter skill name"
@@ -133,16 +133,16 @@ function handleCancel() {
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <label class="block text-sm font-medium text-text-secondary mb-1">Description</label>
             <textarea
               v-model="form.description"
               placeholder="Enter skill description"
               rows="3"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="w-full px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary"
             />
           </div>
 
-          <div v-if="error" class="text-red-500 text-sm">{{ error }}</div>
+          <div v-if="error" class="text-status-error text-sm">{{ error }}</div>
 
           <div class="flex gap-3 pt-4">
             <Button type="submit" :loading="saving">Save Metadata</Button>
@@ -152,33 +152,33 @@ function handleCancel() {
       </Card>
 
       <Card title="Skill Files">
-        <div v-if="fileError" class="text-red-500 text-sm mb-4">{{ fileError }}</div>
+        <div v-if="fileError" class="text-status-error text-sm mb-4">{{ fileError }}</div>
 
         <div v-if="!selectedFile" class="space-y-2">
-          <div class="text-sm text-gray-500 mb-2">Click a file to edit:</div>
+          <div class="text-sm text-text-muted mb-2">Click a file to edit:</div>
           <div
             v-for="filename in fileNames"
             :key="filename"
             @click="selectFile(filename)"
-            class="flex items-center justify-between p-3 bg-gray-50 rounded hover:bg-gray-100 cursor-pointer"
+            class="flex items-center justify-between p-3 bg-bg-secondary rounded hover:bg-bg-hover cursor-pointer"
           >
-            <span class="font-medium text-gray-900">{{ filename }}</span>
-            <span class="text-sm text-gray-500">{{ fileContents[filename]?.length || 0 }} chars</span>
+            <span class="font-medium text-text-primary">{{ filename }}</span>
+            <span class="text-sm text-text-muted">{{ fileContents[filename]?.length || 0 }} chars</span>
           </div>
-          <div v-if="fileNames.length === 0" class="text-gray-500 text-center py-4">
+          <div v-if="fileNames.length === 0" class="text-text-muted text-center py-4">
             No files
           </div>
         </div>
 
         <div v-else class="space-y-4">
           <div class="flex items-center justify-between">
-            <h3 class="font-medium">Editing: {{ selectedFile }}</h3>
+            <h3 class="font-medium text-text-primary">Editing: {{ selectedFile }}</h3>
             <Button variant="secondary" size="sm" @click="cancelEdit">Cancel</Button>
           </div>
           <textarea
             v-model="editingContent"
             rows="20"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+            class="w-full px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary font-mono text-sm"
           />
           <div class="flex gap-2">
             <Button @click="saveFile" :loading="saving">Save File</Button>

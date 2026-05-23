@@ -101,6 +101,36 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/employee-profiles',
+      name: 'employee-profiles',
+      component: () => import('@/views/EmployeeProfilesView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/employee-profiles/create',
+      name: 'employee-profile-create',
+      component: () => import('@/views/EmployeeProfileCreateView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/employee-profiles/:id',
+      name: 'employee-profile-detail',
+      component: () => import('@/views/EmployeeProfileDetailView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/employee-profiles/:id/edit',
+      name: 'employee-profile-edit',
+      component: () => import('@/views/EmployeeProfileEditView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/worker-dashboard',
+      name: 'worker-dashboard',
+      component: () => import('@/views/WorkerDashboardView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
@@ -111,6 +141,11 @@ const router = createRouter({
       name: 'register',
       component: () => import('@/views/RegisterView.vue'),
       meta: { guest: true }
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('@/views/NotFoundView.vue')
     }
   ]
 })

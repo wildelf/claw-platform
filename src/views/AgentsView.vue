@@ -48,7 +48,7 @@ async function handleDelete(agentId: string) {
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-gray-900">Agents</h1>
+      <h1 class="text-2xl font-bold text-text-primary">Agents</h1>
       <router-link to="/agents/create">
         <Button variant="primary">Create Agent</Button>
       </router-link>
@@ -57,7 +57,7 @@ async function handleDelete(agentId: string) {
     <Card :padding="false">
       <Table :columns="columns" :data="agentsStore.agents">
         <template #cell-name="{ row }">
-          <router-link :to="`/agents/${row.id}`" class="text-blue-600 hover:text-blue-800 font-medium">
+          <router-link :to="`/agents/${row.id}`" class="text-accent-primary hover:text-accent-light font-medium">
             {{ row.name }}
           </router-link>
         </template>

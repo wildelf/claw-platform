@@ -65,7 +65,7 @@ onMounted(async () => {
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-gray-900">Audit Logs</h1>
+      <h1 class="text-2xl font-bold text-text-primary">Audit Logs</h1>
       <Button variant="secondary" @click="handleQuery">Refresh</Button>
     </div>
 
@@ -100,36 +100,36 @@ onMounted(async () => {
 
     <!-- Results -->
     <Card v-if="logsStore.loading" class="text-center py-8">
-      <p class="text-gray-500">Loading...</p>
+      <p class="text-text-muted">Loading...</p>
     </Card>
 
-    <Card v-else-if="logsStore.error" class="bg-red-50">
-      <p class="text-red-600">{{ logsStore.error }}</p>
+    <Card v-else-if="logsStore.error" class="bg-status-error/10">
+      <p class="text-status-error">{{ logsStore.error }}</p>
     </Card>
 
     <Card v-else-if="logsStore.entries.length === 0" class="text-center py-8">
-      <p class="text-gray-500">No log entries found</p>
+      <p class="text-text-muted">No log entries found</p>
     </Card>
 
     <Card v-else :padding="false">
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
+        <table class="min-w-full divide-y divide-border-primary">
+          <thead class="bg-bg-tertiary">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Timestamp</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agent</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tool</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Context</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Error</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Timestamp</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Agent</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Action</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Tool</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Context</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase">Error</th>
             </tr>
           </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="entry in logsStore.entries" :key="entry.id" class="hover:bg-gray-50">
-              <td class="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+          <tbody class="bg-bg-primary divide-y divide-border-primary">
+            <tr v-for="entry in logsStore.entries" :key="entry.id" class="hover:bg-bg-hover">
+              <td class="px-4 py-3 text-sm text-text-muted whitespace-nowrap">
                 {{ new Date(entry.timestamp).toLocaleString() }}
               </td>
-              <td class="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
+              <td class="px-4 py-3 text-sm text-text-primary whitespace-nowrap">
                 {{ entry.agent_id.substring(0, 8) }}...
               </td>
               <td class="px-4 py-3">
@@ -137,15 +137,15 @@ onMounted(async () => {
                   {{ entry.action_type }}
                 </Badge>
               </td>
-              <td class="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+              <td class="px-4 py-3 text-sm text-text-muted whitespace-nowrap">
                 {{ entry.tool_name || '-' }}
               </td>
-              <td class="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">
+              <td class="px-4 py-3 text-sm text-text-muted max-w-xs truncate">
                 {{ entry.decision_context || '-' }}
               </td>
               <td class="px-4 py-3 text-sm">
-                <span v-if="entry.error" class="text-red-600">{{ entry.error }}</span>
-                <span v-else class="text-gray-400">-</span>
+                <span v-if="entry.error" class="text-status-error">{{ entry.error }}</span>
+                <span v-else class="text-text-muted">-</span>
               </td>
             </tr>
           </tbody>

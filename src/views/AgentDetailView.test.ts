@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest'
-import { ref } from 'vue'
 
 // Mock types for Message
 interface Message {

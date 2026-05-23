@@ -58,7 +58,7 @@ async function handleDelete(skillId: string, skillName: string) {
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-gray-900">Skills</h1>
+      <h1 class="text-2xl font-bold text-text-primary">Skills</h1>
       <router-link to="/skills/create">
         <Button variant="primary">Create Skill</Button>
       </router-link>
@@ -67,7 +67,7 @@ async function handleDelete(skillId: string, skillName: string) {
     <Card :padding="false">
       <Table :columns="columns" :data="skillsStore.skills">
         <template #cell-name="{ row }">
-          <router-link :to="`/skills/${row.id}`" class="text-blue-600 hover:text-blue-800 font-medium">
+          <router-link :to="`/skills/${row.id}`" class="text-accent-primary hover:text-accent-light font-medium">
             {{ row.name }}
           </router-link>
         </template>

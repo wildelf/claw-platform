@@ -121,24 +121,24 @@ function handleCancel() {
 
 <template>
   <div class="max-w-3xl mx-auto space-y-6">
-    <h1 class="text-2xl font-bold text-gray-900">Create New Tool</h1>
+    <h1 class="text-2xl font-bold text-text-primary">Create New Tool</h1>
 
-    <Card v-if="error" class="bg-red-50">
-      <p class="text-red-600">{{ error }}</p>
+    <Card v-if="error" class="bg-status-error/10">
+      <p class="text-status-error">{{ error }}</p>
     </Card>
 
     <Card title="Basic Information">
       <form @submit.prevent="handleSubmit" class="space-y-4">
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+            <label class="block text-sm font-medium text-text-secondary mb-1">Name *</label>
             <Input v-model="form.name" placeholder="e.g. mes_wip_query" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+            <label class="block text-sm font-medium text-text-secondary mb-1">Type</label>
             <select
               v-model="form.type"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="w-full px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary"
             >
               <option v-for="t in toolTypes" :key="t.value" :value="t.value">
                 {{ t.label }}
@@ -148,30 +148,30 @@ function handleCancel() {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Description</label>
           <textarea
             v-model="form.description"
             placeholder="Describe what this tool does..."
             rows="2"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary"
           />
         </div>
 
         <!-- MCP-specific fields -->
         <template v-if="isMCP">
-          <div class="border-t pt-4 mt-4">
-            <h3 class="text-sm font-semibold text-gray-700 mb-3">MCP Configuration</h3>
+          <div class="border-t border-border-primary pt-4 mt-4">
+            <h3 class="text-sm font-semibold text-text-secondary mb-3">MCP Configuration</h3>
 
             <div class="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Server Name</label>
+                <label class="block text-sm font-medium text-text-secondary mb-1">Server Name</label>
                 <Input v-model="form.server_name" placeholder="e.g. mes-server (groups tools)" />
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">HTTP Method</label>
+                <label class="block text-sm font-medium text-text-secondary mb-1">HTTP Method</label>
                 <select
                   v-model="form.method"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary"
                 >
                   <option value="GET">GET</option>
                   <option value="POST">POST</option>
@@ -182,17 +182,17 @@ function handleCancel() {
             </div>
 
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-1">HTTP Endpoint URL *</label>
+              <label class="block text-sm font-medium text-text-secondary mb-1">HTTP Endpoint URL *</label>
               <Input v-model="form.endpoint" placeholder="http://mes-fab01:8080/api/v1/wip" />
             </div>
 
             <!-- Auth -->
             <div class="grid grid-cols-3 gap-4 mb-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Auth Type</label>
+                <label class="block text-sm font-medium text-text-secondary mb-1">Auth Type</label>
                 <select
                   v-model="form.auth_type"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary"
                 >
                   <option v-for="a in authTypes" :key="a.value" :value="a.value">
                     {{ a.label }}
@@ -200,11 +200,11 @@ function handleCancel() {
                 </select>
               </div>
               <div v-if="form.auth_type !== 'none'">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Token / Value</label>
+                <label class="block text-sm font-medium text-text-secondary mb-1">Token / Value</label>
                 <Input v-model="form.auth_token" type="password" placeholder="Secret token" />
               </div>
               <div v-if="form.auth_type === 'apikey'">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Header Name</label>
+                <label class="block text-sm font-medium text-text-secondary mb-1">Header Name</label>
                 <Input v-model="form.auth_header_name" placeholder="X-API-Key" />
               </div>
             </div>
@@ -212,7 +212,7 @@ function handleCancel() {
             <!-- Custom Headers -->
             <div class="mb-4">
               <div class="flex justify-between items-center mb-2">
-                <label class="block text-sm font-medium text-gray-700">Custom Headers</label>
+                <label class="block text-sm font-medium text-text-secondary">Custom Headers</label>
                 <Button type="button" variant="ghost" size="sm" @click="addHeader">+ Add</Button>
               </div>
               <div v-for="(header, i) in form.headers" :key="i" class="flex gap-2 mb-2">
@@ -220,55 +220,55 @@ function handleCancel() {
                 <Input v-model="header.value" placeholder="Header value" class="flex-1" />
                 <Button type="button" variant="ghost" size="sm" @click="removeHeader(i)">✕</Button>
               </div>
-              <p v-if="form.headers.length === 0" class="text-xs text-gray-500">No custom headers</p>
+              <p v-if="form.headers.length === 0" class="text-xs text-text-muted">No custom headers</p>
             </div>
 
             <!-- Args -->
             <div class="mb-4">
               <div class="flex justify-between items-center mb-2">
-                <label class="block text-sm font-medium text-gray-700">Arguments</label>
+                <label class="block text-sm font-medium text-text-secondary">Arguments</label>
                 <Button type="button" variant="ghost" size="sm" @click="addArg">+ Add Arg</Button>
               </div>
               <div v-for="(arg, i) in form.args" :key="i" class="grid grid-cols-4 gap-2 mb-2 items-end">
                 <Input v-model="arg.name" placeholder="arg_name" class="flex-1" />
                 <select
                   v-model="arg.position"
-                  class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  class="px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary"
                 >
                   <option v-for="p in argPositions" :key="p.value" :value="p.value">{{ p.label }}</option>
                 </select>
-                <label class="flex items-center gap-1 text-sm">
+                <label class="flex items-center gap-1 text-sm text-text-secondary">
                   <input type="checkbox" v-model="arg.required" class="w-4 h-4" />
                   Required
                 </label>
                 <Button type="button" variant="ghost" size="sm" @click="removeArg(i)">✕</Button>
               </div>
-              <p v-if="form.args.length === 0" class="text-xs text-gray-500">No arguments defined</p>
+              <p v-if="form.args.length === 0" class="text-xs text-text-muted">No arguments defined</p>
             </div>
 
             <!-- Templates -->
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Request Template</label>
+                <label class="block text-sm font-medium text-text-secondary mb-1">Request Template</label>
                 <textarea
                   v-model="form.request_template"
                   placeholder='{"lot_id": "{{.Args.lot_id}}"}'
                   rows="4"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs"
+                  class="w-full px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary font-mono text-xs"
                 />
-                <p class="text-xs text-gray-500 mt-1">
+                <p class="text-xs text-text-muted mt-1">
                   Use &#123;&#123;.Args.xxx&#125;&#125; for args, &#123;&#123;.Config.yyy&#125;&#125; for config
                 </p>
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Response Template</label>
+                <label class="block text-sm font-medium text-text-secondary mb-1">Response Template</label>
                 <textarea
                   v-model="form.response_template"
                   placeholder='{"wip_data": {{.Response.data}}}'
                   rows="4"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs"
+                  class="w-full px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary font-mono text-xs"
                 />
-                <p class="text-xs text-gray-500 mt-1">
+                <p class="text-xs text-text-muted mt-1">
                   Use &#123;&#123;.Response.data&#125;&#125; for response fields
                 </p>
               </div>

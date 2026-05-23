@@ -7,27 +7,37 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8'
+        bg: {
+          primary: '#0A0B0C',
+          secondary: '#121316',
+          tertiary: '#1A1B1F',
+          card: '#1E2028',
+          hover: '#252730',
         },
-        success: {
-          50: '#f0fdf4',
-          100: '#dcfce7',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d'
+        border: {
+          primary: '#2A2D35',
+          secondary: '#353842',
         },
-        danger: {
-          50: '#fef2f2',
-          100: '#fee2e2',
-          500: '#ef4444',
-          600: '#dc2626',
-          700: '#b91c1c'
+        accent: {
+          primary: '#8B5CF6',
+          hover: '#7C3AED',
+          light: '#A78BFA',
+        },
+        text: {
+          primary: '#F5F5F7',
+          secondary: '#A0A0A8',
+          muted: '#6B6B75',
+        },
+        status: {
+          active: '#10B981',
+          paused: '#F59E0B',
+          error: '#EF4444',
+          info: '#3B82F6',
         }
+      },
+      fontFamily: {
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       }
     }
   },
