@@ -50,18 +50,18 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gray-100">
+  <div class="min-h-screen flex items-center justify-center bg-bg-secondary">
     <div class="w-full max-w-md">
-      <h1 class="text-2xl font-bold text-center text-gray-900 mb-6">Register</h1>
+      <h1 class="text-2xl font-bold text-center text-text-primary mb-6">Register</h1>
 
-      <Card v-if="error" title="Error" class="mb-4 bg-red-50">
-        <p class="text-red-600">{{ error }}</p>
+      <Card v-if="error" title="Error" class="mb-4 bg-status-error/10">
+        <p class="text-status-error">{{ error }}</p>
       </Card>
 
       <Card title="Create Account">
         <form @submit.prevent="handleSubmit" class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+            <label class="block text-sm font-medium text-text-secondary mb-1">Username</label>
             <Input
               v-model="formData.username"
               placeholder="Enter username"
@@ -69,7 +69,7 @@ async function handleSubmit() {
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label class="block text-sm font-medium text-text-secondary mb-1">Email</label>
             <Input
               v-model="formData.email"
               type="email"
@@ -78,7 +78,7 @@ async function handleSubmit() {
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <label class="block text-sm font-medium text-text-secondary mb-1">Password</label>
             <Input
               v-model="formData.password"
               type="password"
@@ -87,7 +87,7 @@ async function handleSubmit() {
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+            <label class="block text-sm font-medium text-text-secondary mb-1">Confirm Password</label>
             <Input
               v-model="formData.confirmPassword"
               type="password"
@@ -101,9 +101,9 @@ async function handleSubmit() {
         </form>
 
         <template #footer>
-          <p class="text-center text-sm text-gray-600">
+          <p class="text-center text-sm text-text-secondary">
             Already have an account?
-            <router-link to="/login" class="text-blue-600 hover:text-blue-800">
+            <router-link to="/login" class="text-accent-primary hover:text-accent-light">
               Login
             </router-link>
           </p>

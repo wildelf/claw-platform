@@ -45,23 +45,23 @@ function handleDelete(toolId: string) {
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-gray-900">Tools</h1>
+      <h1 class="text-2xl font-bold text-text-primary">Tools</h1>
       <router-link to="/tools/create">
         <Button variant="primary">Create Tool</Button>
       </router-link>
     </div>
 
     <Card v-if="toolsStore.loading" class="text-center py-8">
-      <p class="text-gray-500">Loading...</p>
+      <p class="text-text-muted">Loading...</p>
     </Card>
 
-    <Card v-else-if="toolsStore.error" class="bg-red-50">
-      <p class="text-red-600">{{ toolsStore.error }}</p>
+    <Card v-else-if="toolsStore.error" class="bg-status-error/10">
+      <p class="text-status-error">{{ toolsStore.error }}</p>
     </Card>
 
     <Card v-else-if="toolsStore.tools.length === 0" class="text-center py-8">
-      <p class="text-gray-500">No tools yet</p>
-      <router-link to="/tools/create" class="text-blue-600 hover:text-blue-800 mt-2 inline-block">
+      <p class="text-text-muted mb-4">No tools yet</p>
+      <router-link to="/tools/create" class="text-accent-primary hover:text-accent-light mt-2 inline-block">
         Create your first tool
       </router-link>
     </Card>
@@ -69,10 +69,10 @@ function handleDelete(toolId: string) {
     <Card v-else :padding="false">
       <Table :columns="columns" :data="toolsStore.tools">
         <template #cell-name="{ row }">
-          <span class="font-medium text-gray-900">{{ row.name }}</span>
+          <span class="font-medium text-text-primary">{{ row.name }}</span>
         </template>
         <template #cell-description="{ row }">
-          <span class="text-gray-500 truncate block max-w-md">{{ row.description || 'No description' }}</span>
+          <span class="text-text-muted truncate block max-w-md">{{ row.description || 'No description' }}</span>
         </template>
         <template #cell-type="{ row }">
           <Badge :variant="getTypeVariant(row.type)">
@@ -83,7 +83,7 @@ function handleDelete(toolId: string) {
           <div class="flex gap-2">
             <Button variant="ghost" size="sm" @click="handleView(row.id)">View</Button>
             <Button variant="ghost" size="sm" @click="handleEdit(row.id)">Edit</Button>
-            <Button variant="ghost" size="sm" class="text-red-600" @click="handleDelete(row.id)">Delete</Button>
+            <Button variant="ghost" size="sm" class="text-status-error" @click="handleDelete(row.id)">Delete</Button>
           </div>
         </template>
       </Table>

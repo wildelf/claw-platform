@@ -225,22 +225,22 @@ const scheduleTypeOptions = [
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-gray-900">Scheduled Tasks</h1>
+      <h1 class="text-2xl font-bold text-text-primary">Scheduled Tasks</h1>
       <Button variant="primary" @click="openCreateModal">Create Task</Button>
     </div>
 
     <!-- Error display -->
-    <div v-if="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+    <div v-if="error" class="bg-status-error/10 border border-status-error/30 text-status-error px-4 py-3 rounded-lg">
       {{ error }}
     </div>
 
     <!-- Loading state -->
-    <div v-if="loading" class="text-center py-8 text-gray-500">Loading...</div>
+    <div v-if="loading" class="text-center py-8 text-text-muted">Loading...</div>
 
     <!-- Empty state -->
     <Card v-else-if="tasks.length === 0" class="text-center py-8">
-      <p class="text-gray-500">No scheduled tasks yet.</p>
-      <p class="text-gray-400 text-sm mt-1">Create your first task to get started.</p>
+      <p class="text-text-muted">No scheduled tasks yet.</p>
+      <p class="text-text-muted text-sm mt-1">Create your first task to get started.</p>
     </Card>
 
     <!-- Tasks list -->
@@ -249,44 +249,44 @@ const scheduleTypeOptions = [
         <div class="space-y-3">
           <div class="flex justify-between items-start">
             <div>
-              <h3 class="text-lg font-semibold text-gray-900">{{ task.name }}</h3>
-              <p class="text-gray-500 text-sm">{{ task.description || 'No description' }}</p>
+              <h3 class="text-lg font-semibold text-text-primary">{{ task.name }}</h3>
+              <p class="text-text-muted text-sm">{{ task.description || 'No description' }}</p>
             </div>
             <Badge :variant="getStatusVariant(task.status)">
               {{ task.status }}
             </Badge>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-gray-200">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-border-primary">
             <div>
-              <p class="text-sm font-medium text-gray-500">Schedule</p>
-              <p class="text-gray-900">{{ formatScheduleInfo(task) }}</p>
+              <p class="text-sm font-medium text-text-muted">Schedule</p>
+              <p class="text-text-primary">{{ formatScheduleInfo(task) }}</p>
             </div>
             <div>
-              <p class="text-sm font-medium text-gray-500">Task Input</p>
-              <p class="text-gray-900 text-sm truncate">{{ task.task_input }}</p>
+              <p class="text-sm font-medium text-text-muted">Task Input</p>
+              <p class="text-text-primary text-sm truncate">{{ task.task_input }}</p>
             </div>
             <div>
-              <p class="text-sm font-medium text-gray-500">Next Run</p>
-              <p class="text-gray-900">{{ formatDate(task.next_run_at) }}</p>
+              <p class="text-sm font-medium text-text-muted">Next Run</p>
+              <p class="text-text-primary">{{ formatDate(task.next_run_at) }}</p>
             </div>
             <div>
-              <p class="text-sm font-medium text-gray-500">Last Run</p>
-              <p class="text-gray-900">{{ formatDate(task.last_run_at) }}</p>
+              <p class="text-sm font-medium text-text-muted">Last Run</p>
+              <p class="text-text-primary">{{ formatDate(task.last_run_at) }}</p>
             </div>
             <div>
-              <p class="text-sm font-medium text-gray-500">Run Count</p>
-              <p class="text-gray-900">{{ task.run_count }}</p>
+              <p class="text-sm font-medium text-text-muted">Run Count</p>
+              <p class="text-text-primary">{{ task.run_count }}</p>
             </div>
           </div>
 
           <!-- Error display -->
-          <div v-if="task.last_error" class="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
+          <div v-if="task.last_error" class="bg-status-error/10 border border-status-error/30 text-status-error px-3 py-2 rounded-lg text-sm">
             <strong>Last Error:</strong> {{ task.last_error }}
           </div>
 
           <!-- Actions -->
-          <div class="flex gap-2 pt-3 border-t border-gray-200">
+          <div class="flex gap-2 pt-3 border-t border-border-primary">
             <Button variant="primary" size="sm" :loading="triggering === task.id" :disabled="!!triggering" @click="handleTrigger(task)">Run Now</Button>
             <Button variant="secondary" size="sm" @click="openEditModal(task)">Edit</Button>
             <Button variant="danger" size="sm" :loading="deleting === task.id" :disabled="!!deleting" @click="handleDelete(task)">Delete</Button>
@@ -299,7 +299,7 @@ const scheduleTypeOptions = [
     <Modal :open="showModal" :title="modalTitle" @close="closeModal">
       <form @submit.prevent="handleSubmit" class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Name</label>
           <Input
             v-model="form.name"
             placeholder="Task name"
@@ -308,7 +308,7 @@ const scheduleTypeOptions = [
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Description</label>
           <Input
             v-model="form.description"
             placeholder="Optional description"
@@ -316,7 +316,7 @@ const scheduleTypeOptions = [
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Agent</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Agent</label>
           <Select
             v-model="form.agent_id"
             :options="agentOptions"
@@ -326,7 +326,7 @@ const scheduleTypeOptions = [
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Schedule Type</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Schedule Type</label>
           <Select
             v-model="form.schedule_type"
             :options="scheduleTypeOptions"
@@ -334,17 +334,17 @@ const scheduleTypeOptions = [
         </div>
 
         <div v-if="form.schedule_type === 'cron'">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Cron Expression</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Cron Expression</label>
           <Input
             v-model="form.cron_expression"
             placeholder="* * * * *"
             :error="formErrors.cron_expression"
           />
-          <p class="mt-1 text-xs text-gray-500">Format: minute hour day month weekday</p>
+          <p class="mt-1 text-xs text-text-muted">Format: minute hour day month weekday</p>
         </div>
 
         <div v-if="form.schedule_type === 'interval'">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Interval (seconds)</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Interval (seconds)</label>
           <Input
             v-model="form.interval_seconds"
             type="number"
@@ -353,7 +353,7 @@ const scheduleTypeOptions = [
         </div>
 
         <div v-if="form.schedule_type === 'once'">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Run At</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Run At</label>
           <Input
             v-model="form.run_at"
             type="datetime-local"
@@ -362,18 +362,18 @@ const scheduleTypeOptions = [
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Task Input</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Task Input</label>
           <textarea
             v-model="form.task_input"
             rows="4"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-            :class="{ 'border-red-500': formErrors.task_input }"
+            class="w-full px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary resize-none"
+            :class="{ 'border-status-error': formErrors.task_input }"
             placeholder="Enter the task prompt or input..."
           />
-          <p v-if="formErrors.task_input" class="mt-1 text-sm text-red-500">{{ formErrors.task_input }}</p>
+          <p v-if="formErrors.task_input" class="mt-1 text-sm text-status-error">{{ formErrors.task_input }}</p>
         </div>
 
-        <div v-if="formErrors.submit" class="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
+        <div v-if="formErrors.submit" class="bg-status-error/10 border border-status-error/30 text-status-error px-3 py-2 rounded-lg text-sm">
           {{ formErrors.submit }}
         </div>
       </form>

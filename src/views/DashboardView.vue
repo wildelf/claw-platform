@@ -41,24 +41,24 @@ function getStatusVariant(status: string): 'success' | 'warning' | 'danger' | 'd
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+      <h1 class="text-2xl font-bold text-text-primary">Dashboard</h1>
     </div>
 
     <!-- Recent Agents -->
     <Card title="Recent Agents">
-      <div v-if="agentsStore.loading" class="text-center py-4 text-gray-500">Loading...</div>
-      <div v-else-if="recentAgents.length === 0" class="text-center py-4 text-gray-500">
+      <div v-if="agentsStore.loading" class="text-center py-4 text-text-muted">Loading...</div>
+      <div v-else-if="recentAgents.length === 0" class="text-center py-4 text-text-muted">
         No agents yet
       </div>
       <div v-else class="space-y-3">
         <div
           v-for="agent in recentAgents"
           :key="agent.id"
-          class="flex justify-between items-center p-3 bg-gray-50 rounded-lg"
+          class="flex justify-between items-center p-3 bg-bg-secondary rounded-lg"
         >
           <div>
-            <p class="font-medium text-gray-900">{{ agent.name }}</p>
-            <p class="text-sm text-gray-500">{{ agent.description }}</p>
+            <p class="font-medium text-text-primary">{{ agent.name }}</p>
+            <p class="text-sm text-text-muted">{{ agent.description }}</p>
           </div>
           <Badge :variant="getStatusVariant(agent.status)">
             {{ agent.status }}
@@ -75,21 +75,21 @@ function getStatusVariant(status: string): 'success' | 'warning' | 'danger' | 'd
     <!-- Skill Statistics -->
     <Card title="Skill Statistics">
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="text-center p-4 bg-gray-50 rounded-lg">
-          <p class="text-2xl font-bold text-gray-900">{{ skillStats.total }}</p>
-          <p class="text-sm text-gray-500">Total Skills</p>
+        <div class="text-center p-4 bg-bg-secondary rounded-lg">
+          <p class="text-2xl font-bold text-text-primary">{{ skillStats.total }}</p>
+          <p class="text-sm text-text-muted">Total Skills</p>
         </div>
-        <div class="text-center p-4 bg-green-50 rounded-lg">
-          <p class="text-2xl font-bold text-green-700">{{ skillStats.trained }}</p>
-          <p class="text-sm text-green-600">Trained</p>
+        <div class="text-center p-4 bg-status-active/10 rounded-lg">
+          <p class="text-2xl font-bold text-status-active">{{ skillStats.trained }}</p>
+          <p class="text-sm text-status-active">Trained</p>
         </div>
-        <div class="text-center p-4 bg-yellow-50 rounded-lg">
-          <p class="text-2xl font-bold text-yellow-700">{{ skillStats.pending }}</p>
-          <p class="text-sm text-yellow-600">Pending</p>
+        <div class="text-center p-4 bg-status-paused/10 rounded-lg">
+          <p class="text-2xl font-bold text-status-paused">{{ skillStats.pending }}</p>
+          <p class="text-sm text-status-paused">Pending</p>
         </div>
-        <div class="text-center p-4 bg-red-50 rounded-lg">
-          <p class="text-2xl font-bold text-red-700">{{ skillStats.needs_review }}</p>
-          <p class="text-sm text-red-600">Needs Review</p>
+        <div class="text-center p-4 bg-status-error/10 rounded-lg">
+          <p class="text-2xl font-bold text-status-error">{{ skillStats.needs_review }}</p>
+          <p class="text-sm text-status-error">Needs Review</p>
         </div>
       </div>
     </Card>

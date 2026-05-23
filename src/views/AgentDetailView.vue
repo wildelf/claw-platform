@@ -459,7 +459,7 @@ function handleEdit() {
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-gray-900">Agent Details</h1>
+      <h1 class="text-2xl font-bold text-text-primary">Agent Details</h1>
       <div class="flex gap-2">
         <Button variant="primary" @click="handleRun" :loading="running">Run Agent</Button>
         <Button variant="secondary" @click="openScheduleModal">Schedule</Button>
@@ -473,20 +473,20 @@ function handleEdit() {
       <div class="p-4">
         <button
           @click="scheduledTasksExpanded = !scheduledTasksExpanded"
-          class="w-full flex items-center justify-between text-sm text-gray-600 hover:bg-gray-50 -mx-4 -mt-4 px-4 py-2"
+          class="w-full flex items-center justify-between text-sm text-text-secondary hover:bg-bg-hover -mx-4 -mt-4 px-4 py-2"
         >
           <span>Scheduled Tasks</span>
           <span>{{ scheduledTasksExpanded ? '收起' : '展开' }}</span>
         </button>
         <div v-show="scheduledTasksExpanded">
-          <div v-if="agentScheduledTasks.length === 0" class="text-center py-4 text-gray-500">
+          <div v-if="agentScheduledTasks.length === 0" class="text-center py-4 text-text-muted">
             No scheduled tasks for this agent
           </div>
           <div v-else class="space-y-2">
-            <div v-for="task in agentScheduledTasks" :key="task.id" class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+            <div v-for="task in agentScheduledTasks" :key="task.id" class="flex justify-between items-center p-3 bg-bg-secondary rounded-lg">
               <div>
-                <p class="font-medium text-gray-900">{{ task.name }}</p>
-                <p class="text-sm text-gray-500">{{ formatScheduleBrief(task) }}</p>
+                <p class="font-medium text-text-primary">{{ task.name }}</p>
+                <p class="text-sm text-text-muted">{{ formatScheduleBrief(task) }}</p>
               </div>
               <div class="flex gap-2">
                 <Button variant="primary" size="sm" @click="triggerTask(task.id)">Run Now</Button>
@@ -501,58 +501,58 @@ function handleEdit() {
       </div>
     </Card>
 
-    <div v-if="agentsStore.loading" class="text-center py-8 text-gray-500">Loading...</div>
-    <div v-else-if="!agent" class="text-center py-8 text-gray-500">Agent not found</div>
+    <div v-if="agentsStore.loading" class="text-center py-8 text-text-muted">Loading...</div>
+    <div v-else-if="!agent" class="text-center py-8 text-text-muted">Agent not found</div>
     <template v-else>
       <Card>
         <div class="space-y-4">
           <div class="flex justify-between items-start">
             <div>
-              <h2 class="text-xl font-semibold text-gray-900">{{ agent.name }}</h2>
-              <p class="text-gray-500 mt-1">{{ agent.description }}</p>
+              <h2 class="text-xl font-semibold text-text-primary">{{ agent.name }}</h2>
+              <p class="text-text-muted mt-1">{{ agent.description }}</p>
             </div>
             <Badge :variant="getStatusVariant(agent.status)" class="text-sm">
               {{ agent.status }}
             </Badge>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-border-primary">
             <div>
-              <p class="text-sm font-medium text-gray-500">Role</p>
-              <p class="text-gray-900">{{ agent.role || 'Not specified' }}</p>
+              <p class="text-sm font-medium text-text-muted">Role</p>
+              <p class="text-text-primary">{{ agent.role || 'Not specified' }}</p>
             </div>
             <div>
-              <p class="text-sm font-medium text-gray-500">Goal</p>
-              <p class="text-gray-900">{{ agent.goal || 'Not specified' }}</p>
+              <p class="text-sm font-medium text-text-muted">Goal</p>
+              <p class="text-text-primary">{{ agent.goal || 'Not specified' }}</p>
             </div>
           </div>
 
-          <div class="pt-4 border-t border-gray-200">
+          <div class="pt-4 border-t border-border-primary">
             <button
               @click="configExpanded = !configExpanded"
-              class="w-full flex items-center justify-between text-sm text-gray-600 hover:bg-gray-50 -mx-4 -mt-4 px-4 py-2"
+              class="w-full flex items-center justify-between text-sm text-text-secondary hover:bg-bg-hover -mx-4 -mt-4 px-4 py-2"
             >
               <span>Configuration</span>
               <span>{{ configExpanded ? '收起' : '展开' }}</span>
             </button>
             <div v-show="configExpanded">
-              <div class="pt-4 border-t border-gray-200">
-                <p class="text-sm font-medium text-gray-500">Backstory</p>
-                <p class="text-gray-900 mt-1">{{ agent.backstory || 'Not specified' }}</p>
+              <div class="pt-4 border-t border-border-primary">
+                <p class="text-sm font-medium text-text-muted">Backstory</p>
+                <p class="text-text-primary mt-1">{{ agent.backstory || 'Not specified' }}</p>
               </div>
 
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-200">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-border-primary">
                 <div>
-                  <p class="text-sm font-medium text-gray-500">Text Model</p>
-                  <p class="text-gray-900">{{ textModelName }}</p>
+                  <p class="text-sm font-medium text-text-muted">Text Model</p>
+                  <p class="text-text-primary">{{ textModelName }}</p>
                 </div>
                 <div>
-                  <p class="text-sm font-medium text-gray-500">Image Model</p>
-                  <p class="text-gray-900">{{ imageModelName }}</p>
+                  <p class="text-sm font-medium text-text-muted">Image Model</p>
+                  <p class="text-text-primary">{{ imageModelName }}</p>
                 </div>
                 <div>
-                  <p class="text-sm font-medium text-gray-500">Video Model</p>
-                  <p class="text-gray-900">{{ videoModelName }}</p>
+                  <p class="text-sm font-medium text-text-muted">Video Model</p>
+                  <p class="text-text-primary">{{ videoModelName }}</p>
                 </div>
               </div>
             </div>
@@ -564,8 +564,8 @@ function handleEdit() {
       <Card :padding="false">
         <div class="flex flex-col" style="height: 500px;">
           <!-- Header -->
-          <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-            <h3 class="text-lg font-medium text-gray-900">对话</h3>
+          <div class="px-4 py-3 border-b border-border-primary flex items-center justify-between">
+            <h3 class="text-lg font-medium text-text-primary">对话</h3>
             <Button v-if="messages.length > 0" variant="ghost" size="sm" @click="clearOutput">
               清空对话
             </Button>
@@ -573,19 +573,19 @@ function handleEdit() {
 
           <!-- Messages Area -->
           <div class="flex-1 overflow-y-auto p-4 space-y-4">
-            <div v-if="messages.length === 0" class="text-center text-gray-400 py-8">
+            <div v-if="messages.length === 0" class="text-center text-text-muted py-8">
               输入任务开始对话
             </div>
 
             <div v-for="msg in messages" :key="msg.id">
               <!-- User Message -->
               <div v-if="msg.role === 'user'" class="flex gap-3">
-                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium shrink-0">
+                <div class="w-8 h-8 rounded-full bg-status-info flex items-center justify-center text-text-primary text-sm font-medium shrink-0">
                   {{ msg.content.charAt(0).toUpperCase() }}
                 </div>
                 <div class="flex-1">
-                  <div class="text-sm font-medium text-gray-900">{{ agent?.name || 'User' }}</div>
-                  <div class="mt-1 text-gray-700 bg-gray-100 rounded-lg px-4 py-2">
+                  <div class="text-sm font-medium text-text-primary">{{ agent?.name || 'User' }}</div>
+                  <div class="mt-1 text-text-secondary bg-bg-tertiary rounded-lg px-4 py-2">
                     {{ msg.content }}
                   </div>
                 </div>
@@ -593,20 +593,20 @@ function handleEdit() {
 
               <!-- Agent Message -->
               <div v-else class="flex gap-3">
-                <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white text-sm font-medium shrink-0">
+                <div class="w-8 h-8 rounded-full bg-status-active flex items-center justify-center text-text-primary text-sm font-medium shrink-0">
                   AI
                 </div>
                 <div class="flex-1">
-                  <div class="text-sm font-medium text-gray-900">Agent</div>
+                  <div class="text-sm font-medium text-text-primary">Agent</div>
 
                   <!-- Events -->
                   <div v-if="msg.events && msg.events.length > 0" class="mt-2 space-y-1">
                     <div v-for="(evt, idx) in msg.events" :key="idx" class="flex items-center gap-2 text-xs">
                       <span>{{ getEventIcon(evt.type) }}</span>
-                      <span class="text-gray-600">{{ getEventLabel(evt.type) }}</span>
-                      <span v-if="evt.skillName" class="text-blue-600">{{ evt.skillName }}</span>
-                      <span v-else-if="evt.toolName" class="text-purple-600">{{ evt.toolName }}</span>
-                      <span v-else-if="evt.url" class="text-green-600">
+                      <span class="text-text-secondary">{{ getEventLabel(evt.type) }}</span>
+                      <span v-if="evt.skillName" class="text-accent-primary">{{ evt.skillName }}</span>
+                      <span v-else-if="evt.toolName" class="text-accent-light">{{ evt.toolName }}</span>
+                      <span v-else-if="evt.url" class="text-status-active">
                         <a :href="evt.url" target="_blank" class="underline">{{ evt.alt || '查看图片' }}</a>
                       </span>
                     </div>
@@ -616,23 +616,23 @@ function handleEdit() {
                   <div v-if="msg.thinking" class="mt-2">
                     <button
                       @click="msg.thinkingExpanded = !msg.thinkingExpanded"
-                      class="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                      class="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors"
                     >
                       <span>{{ msg.thinkingExpanded ? '▼' : '▶' }}</span>
                       <span>🤔 思考过程</span>
-                      <span v-if="!msg.thinkingExpanded" class="text-gray-300">({{ msg.thinking.length }} 字)</span>
+                      <span v-if="!msg.thinkingExpanded" class="text-text-muted">({{ msg.thinking.length }} 字)</span>
                     </button>
                     <pre
                       v-if="msg.thinkingExpanded"
-                      class="mt-1 text-xs text-gray-500 bg-gray-50 rounded p-2 whitespace-pre-wrap max-h-40 overflow-y-auto"
+                      class="mt-1 text-xs text-text-muted bg-bg-secondary rounded p-2 whitespace-pre-wrap max-h-40 overflow-y-auto"
                     >{{ msg.thinking }}</pre>
                   </div>
 
                   <!-- Content -->
-                  <div class="mt-2 text-gray-700 whitespace-pre-wrap">{{ msg.content || (msg.isComplete ? '' : '思考中...') }}</div>
+                  <div class="mt-2 text-text-secondary whitespace-pre-wrap">{{ msg.content || (msg.isComplete ? '' : '思考中...') }}</div>
 
                   <!-- Loading indicator -->
-                  <div v-if="!msg.isComplete && !msg.content && !msg.thinking" class="mt-1 flex items-center gap-2 text-xs text-gray-400">
+                  <div v-if="!msg.isComplete && !msg.content && !msg.thinking" class="mt-1 flex items-center gap-2 text-xs text-text-muted">
                     <span class="animate-pulse">●</span>
                     <span>处理中</span>
                   </div>
@@ -642,12 +642,12 @@ function handleEdit() {
           </div>
 
           <!-- Input Area -->
-          <div class="p-4 border-t border-gray-200">
+          <div class="p-4 border-t border-border-primary">
             <div class="flex gap-2">
               <textarea
                 v-model="taskInput"
                 @keydown.enter.exact.prevent="handleRun"
-                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                class="flex-1 px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary resize-none"
                 rows="2"
                 placeholder="输入任务，按 Enter 发送..."
                 :disabled="isLoading"
@@ -666,44 +666,44 @@ function handleEdit() {
       </Card>
 
       <!-- Schedule Task Modal -->
-      <div v-if="showScheduleModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div v-if="showScheduleModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <Card class="w-full max-w-md" :title="agent ? `Schedule Task for ${agent.name}` : 'Schedule Task'">
           <form @submit.prevent="handleScheduleSubmit" class="space-y-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Task Name</label>
+              <label class="block text-sm font-medium text-text-secondary mb-1">Task Name</label>
               <Input v-model="scheduleForm.name" placeholder="e.g., Daily Report" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <label class="block text-sm font-medium text-text-secondary mb-1">Description</label>
               <Input v-model="scheduleForm.description" placeholder="Optional description" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Schedule Type</label>
-              <select v-model="scheduleForm.schedule_type" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+              <label class="block text-sm font-medium text-text-secondary mb-1">Schedule Type</label>
+              <select v-model="scheduleForm.schedule_type" class="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-secondary text-text-primary">
                 <option value="once">Once</option>
                 <option value="cron">Cron Expression</option>
                 <option value="interval">Interval</option>
               </select>
             </div>
             <div v-if="scheduleForm.schedule_type === 'cron'">
-              <label class="block text-sm font-medium text-gray-700 mb-1">Cron Expression</label>
+              <label class="block text-sm font-medium text-text-secondary mb-1">Cron Expression</label>
               <Input v-model="scheduleForm.cron_expression" placeholder="0 9 * * *" />
-              <p class="mt-1 text-xs text-gray-500">Format: minute hour day month weekday</p>
+              <p class="mt-1 text-xs text-text-muted">Format: minute hour day month weekday</p>
             </div>
             <div v-if="scheduleForm.schedule_type === 'interval'">
-              <label class="block text-sm font-medium text-gray-700 mb-1">Interval (seconds)</label>
+              <label class="block text-sm font-medium text-text-secondary mb-1">Interval (seconds)</label>
               <Input v-model="scheduleForm.interval_seconds" type="number" />
             </div>
             <div v-if="scheduleForm.schedule_type === 'once'">
-              <label class="block text-sm font-medium text-gray-700 mb-1">Run At</label>
+              <label class="block text-sm font-medium text-text-secondary mb-1">Run At</label>
               <Input v-model="scheduleForm.run_at" type="datetime-local" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Task Input</label>
+              <label class="block text-sm font-medium text-text-secondary mb-1">Task Input</label>
               <textarea
                 v-model="scheduleForm.task_input"
                 rows="3"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                class="w-full px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary resize-none bg-bg-secondary text-text-primary"
                 placeholder="What should this agent do?"
               />
             </div>

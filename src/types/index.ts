@@ -163,3 +163,39 @@ export interface ScheduledTask {
   created_at: string
   updated_at: string
 }
+
+export interface EmployeeProfile {
+  id: string
+  name: string
+  role: string
+  goal: string
+  backstory: string
+  personality: string
+  constraints: string
+  working_rules: string
+  status: 'active' | 'inactive' | 'paused' | 'error'
+  git_path: string
+  user_id?: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface QueuedTask {
+  task_id: string
+  task_type?: string
+  status: 'queued' | 'running' | 'completed' | 'failed'
+  message?: string
+  agent_id?: string
+  result?: {
+    events_count: number
+    completed_at: string
+  }
+}
+
+export interface WorkerStatus {
+  is_running: boolean
+  last_heartbeat: string | null
+  active_tasks: number
+  completed_tasks: number
+  failed_tasks: number
+}

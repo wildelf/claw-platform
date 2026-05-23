@@ -36,22 +36,22 @@ function formatTime(timestamp: number): string {
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-gray-900">Feedback</h1>
+      <h1 class="text-2xl font-bold text-text-primary">Feedback</h1>
       <Button variant="secondary" @click="feedbackStore.fetchFeedback()">
         Refresh
       </Button>
     </div>
 
     <Card v-if="feedbackStore.loading" class="text-center py-8">
-      <p class="text-gray-500">Loading...</p>
+      <p class="text-text-muted">Loading...</p>
     </Card>
 
-    <Card v-else-if="feedbackStore.error" class="bg-red-50">
-      <p class="text-red-600">{{ feedbackStore.error }}</p>
+    <Card v-else-if="feedbackStore.error" class="bg-status-error/10">
+      <p class="text-status-error">{{ feedbackStore.error }}</p>
     </Card>
 
     <Card v-else-if="feedbackStore.feedbackList.length === 0" class="text-center py-8">
-      <p class="text-gray-500">No feedback yet</p>
+      <p class="text-text-muted">No feedback yet</p>
     </Card>
 
     <Card v-else :padding="false">

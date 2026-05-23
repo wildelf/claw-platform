@@ -73,7 +73,7 @@ function onSelectFile(name: string) {
   <div class="h-full flex flex-col">
     <!-- Header -->
     <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">
+      <h1 class="text-2xl font-bold text-text-primary">
         {{ isEditMode ? `Edit: ${form.name}` : 'Create Skill' }}
       </h1>
       <div class="flex gap-3">
@@ -89,8 +89,8 @@ function onSelectFile(name: string) {
     </div>
 
     <!-- Error Banner -->
-    <div v-if="error" class="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
-      <p class="text-red-600 text-sm">{{ error }}</p>
+    <div v-if="error" class="mb-4 bg-status-error/10 border border-status-error/30 rounded-lg p-3">
+      <p class="text-status-error text-sm">{{ error }}</p>
     </div>
 
     <!-- Three Panel Layout -->
@@ -101,7 +101,7 @@ function onSelectFile(name: string) {
           <div class="space-y-4">
             <!-- Name -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+              <label class="block text-sm font-medium text-text-secondary mb-1">Name *</label>
               <Input
                 v-model="form.name"
                 placeholder="e.g., code-review, data-analysis"
@@ -111,13 +111,13 @@ function onSelectFile(name: string) {
 
             <!-- Description -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <label class="block text-sm font-medium text-text-secondary mb-1">Description</label>
               <textarea
                 v-model="form.description"
                 placeholder="Briefly describe what this skill does..."
                 rows="3"
                 :disabled="generationProgress === 'generating'"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                class="w-full px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary disabled:bg-bg-tertiary"
               />
             </div>
 
@@ -132,13 +132,13 @@ function onSelectFile(name: string) {
 
             <!-- Tags -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+              <label class="block text-sm font-medium text-text-secondary mb-1">Tags</label>
               <Input
                 v-model="form.tags"
                 placeholder="comma, separated, tags"
                 :disabled="generationProgress === 'generating'"
               />
-              <p class="text-xs text-gray-500 mt-1">Separate tags with commas</p>
+              <p class="text-xs text-text-muted mt-1">Separate tags with commas</p>
             </div>
           </div>
         </Card>
@@ -146,7 +146,7 @@ function onSelectFile(name: string) {
         <!-- Create Mode: Definition textarea -->
         <Card v-if="!isEditMode" :padding="true" title="Skill Definition" class="mt-4">
           <div class="space-y-4">
-            <p class="text-sm text-gray-600">
+            <p class="text-sm text-text-secondary">
               Describe what you want this skill to do in natural language. Be specific about inputs, outputs, and behavior.
             </p>
             <textarea
@@ -154,7 +154,7 @@ function onSelectFile(name: string) {
               placeholder="I want a skill that helps with code review. It should:&#10;- Check code for common bugs&#10;- Suggest improvements&#10;- Provide examples..."
               rows="8"
               :disabled="generationProgress === 'generating'"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm disabled:bg-gray-100"
+              class="w-full px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary font-mono text-sm disabled:bg-bg-tertiary"
             />
           </div>
         </Card>
@@ -162,7 +162,7 @@ function onSelectFile(name: string) {
         <!-- Edit Mode: Modification textarea -->
         <Card v-if="isEditMode" :padding="true" title="Modify Skill" class="mt-4">
           <div class="space-y-4">
-            <p class="text-sm text-gray-600">
+            <p class="text-sm text-text-secondary">
               Describe changes in natural language. The AI will modify only the parts you specify.
             </p>
             <textarea
@@ -170,7 +170,7 @@ function onSelectFile(name: string) {
               placeholder="e.g., change the model to gpt-4, increase timeout to 60s, add support for Python 3.12..."
               rows="6"
               :disabled="generationProgress === 'generating'"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm disabled:bg-gray-100"
+              class="w-full px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary font-mono text-sm disabled:bg-bg-tertiary"
             />
             <div class="flex gap-2">
               <Button

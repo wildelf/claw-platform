@@ -10,11 +10,11 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <div class="bg-[var(--bg-primary)] rounded-lg shadow border border-[var(--border-color)]">
-    <div v-if="title" class="px-4 py-3 border-b border-[var(--border-color)]">
-      <h3 class="text-lg font-semibold text-[var(--text-primary)]">{{ title }}</h3>
+  <div class="bg-bg-card border border-border-primary rounded-xl">
+    <div v-if="title" class="px-5 py-4 border-b border-border-primary">
+      <h3 class="text-lg font-semibold text-text-primary">{{ title }}</h3>
     </div>
-    <div :class="[' rounded-b-lg', { 'p-4': padding }]">
+    <div :class="[{ 'p-5': padding }]">
       <slot />
     </div>
   </div>

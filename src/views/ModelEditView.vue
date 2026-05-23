@@ -81,16 +81,16 @@ function handleCancel() {
 
 <template>
   <div class="max-w-2xl mx-auto space-y-6">
-    <h1 class="text-2xl font-bold text-gray-900">Edit Model Configuration</h1>
+    <h1 class="text-2xl font-bold text-text-primary">Edit Model Configuration</h1>
 
-    <Card v-if="error" class="bg-red-50">
-      <p class="text-red-600">{{ error }}</p>
+    <Card v-if="error" class="bg-status-error/10">
+      <p class="text-status-error">{{ error }}</p>
     </Card>
 
     <Card title="Model Information">
       <form @submit.prevent="handleSubmit" class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Name *</label>
           <Input
             v-model="form.name"
             placeholder="e.g., OpenAI GPT-4o"
@@ -98,10 +98,10 @@ function handleCancel() {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Provider *</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Provider *</label>
           <select
             v-model="form.type"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary"
           >
             <option v-for="opt in providerOptions" :key="opt.value" :value="opt.value">
               {{ opt.label }}
@@ -110,7 +110,7 @@ function handleCancel() {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Model Name *</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Model Name *</label>
           <Input
             v-model="form.model"
             placeholder="e.g., gpt-4o"
@@ -118,20 +118,20 @@ function handleCancel() {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">API Key</label>
           <input
             v-model="form.api_key"
             type="password"
             placeholder="Leave empty to keep current"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary"
           />
-          <p class="text-sm text-gray-500 mt-1">
+          <p class="text-sm text-text-muted mt-1">
             Leave empty to keep current API key
           </p>
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Base URL</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Base URL</label>
           <Input
             v-model="form.base_url"
             placeholder="e.g., https://api.openai.com/v1"
@@ -139,10 +139,10 @@ function handleCancel() {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Modality</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Modality</label>
           <select
             v-model="form.modality"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary"
           >
             <option value="text">Text</option>
             <option value="image-to-text">Image to Text (VLM)</option>
