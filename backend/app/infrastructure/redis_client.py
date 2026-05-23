@@ -12,6 +12,11 @@ from app.config import settings
 # Redis key prefixes
 RUNNING_AGENTS_KEY = "running_agents"
 CANCEL_FLAG_PREFIX = "cancel_agent:"
+WORKER_HEARTBEAT_KEY = "worker:heartbeat:{}"
+WORKER_REGISTRY_KEY = "worker:registry"
+TASK_QUEUE_KEY = "task:queue"
+TASK_PROCESSING_KEY = "task:processing"
+TASK_RESULT_KEY = "task:result:{}"
 
 
 def _get_node_id() -> str:
@@ -93,3 +98,10 @@ def get_agent_registry() -> RedisAgentRegistry:
     if _agent_registry is None:
         _agent_registry = RedisAgentRegistry(get_redis_client())
     return _agent_registry
+
+
+def reset_redis_client() -> None:
+    """Reset the global Redis client (useful for test cleanup between event loops)."""
+    global _redis_client, _agent_registry
+    _redis_client = None
+    _agent_registry = None
