@@ -10,39 +10,39 @@ interface Props {
   data: any[]
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 </script>
 
 <template>
   <div class="overflow-x-auto">
-    <table class="min-w-full divide-y divide-[var(--border-color)]">
-      <thead class="bg-[var(--bg-secondary)]">
+    <table class="min-w-full divide-y divide-border-primary">
+      <thead class="bg-bg-secondary">
         <tr>
           <th
             v-for="column in columns"
             :key="column.key"
             :style="column.width ? { width: column.width } : undefined"
-            class="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider"
+            class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider"
           >
             {{ column.label }}
           </th>
         </tr>
       </thead>
-      <tbody class="bg-[var(--bg-primary)] divide-y divide-[var(--border-color)]">
-        <tr v-if="props.data.length === 0">
-          <td :colspan="columns.length" class="px-4 py-8 text-center text-[var(--text-muted)]">
+      <tbody class="bg-bg-primary divide-y divide-border-primary">
+        <tr v-if="data.length === 0">
+          <td :colspan="columns.length" class="px-4 py-8 text-center text-text-muted">
             No data available
           </td>
         </tr>
         <tr
-          v-for="(row, index) in props.data"
+          v-for="(row, index) in data"
           :key="index"
-          class="hover:bg-[var(--bg-secondary)]"
+          class="hover:bg-bg-hover transition-colors"
         >
           <td
             v-for="column in columns"
             :key="column.key"
-            class="px-4 py-3 text-sm text-[var(--text-primary)]"
+            class="px-4 py-3 text-sm text-text-primary"
           >
             <slot :name="`cell-${column.key}`" :row="row" :value="row[column.key]">
               {{ row[column.key] }}

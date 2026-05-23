@@ -122,73 +122,73 @@ function isToolSelected(toolId: string) {
 
 <template>
   <div>
-    <h1 class="text-2xl font-semibold mb-6">Edit Agent</h1>
+    <h1 class="text-2xl font-semibold mb-6 text-text-primary">Edit Agent</h1>
 
     <Card v-if="loading" class="text-center py-8">
-      <p class="text-gray-500">Loading...</p>
+      <p class="text-text-muted">Loading...</p>
     </Card>
 
     <Card v-else-if="error" class="text-center py-8">
-      <p class="text-red-500">{{ error }}</p>
+      <p class="text-status-error">{{ error }}</p>
     </Card>
 
     <Card v-else>
       <form @submit.prevent="handleSubmit" class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Name</label>
           <input
             v-model="form.name"
             type="text"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+            class="w-full px-3 py-2 border border-border-primary rounded focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary"
             required
           />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Description</label>
           <textarea
             v-model="form.description"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+            class="w-full px-3 py-2 border border-border-primary rounded focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary"
             rows="3"
           />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Role</label>
           <input
             v-model="form.role"
             type="text"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+            class="w-full px-3 py-2 border border-border-primary rounded focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary"
           />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Goal</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Goal</label>
           <textarea
             v-model="form.goal"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+            class="w-full px-3 py-2 border border-border-primary rounded focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary"
             rows="2"
           />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Backstory</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Backstory</label>
           <textarea
             v-model="form.backstory"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+            class="w-full px-3 py-2 border border-border-primary rounded focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary"
             rows="3"
           />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Skills</label>
-          <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded p-3">
+          <label class="block text-sm font-medium text-text-secondary mb-2">Skills</label>
+          <div class="space-y-2 max-h-48 overflow-y-auto border border-border-primary rounded p-3">
             <div
               v-for="skill in skillsStore.skills"
               :key="skill.id"
               @click="toggleSkill(skill.id)"
-              class="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-50"
-              :class="isSkillSelected(skill.id) ? 'bg-blue-50' : ''"
+              class="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-bg-hover"
+              :class="isSkillSelected(skill.id) ? 'bg-accent-primary/10' : ''"
             >
               <input
                 type="checkbox"
@@ -198,21 +198,21 @@ function isToolSelected(toolId: string) {
               />
               <span>{{ skill.name }}</span>
             </div>
-            <div v-if="skillsStore.skills.length === 0" class="text-gray-500 text-sm">
+            <div v-if="skillsStore.skills.length === 0" class="text-text-muted text-sm">
               No skills available
             </div>
           </div>
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Built-in Tools</label>
-          <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded p-3">
+          <label class="block text-sm font-medium text-text-secondary mb-2">Built-in Tools</label>
+          <div class="space-y-2 max-h-48 overflow-y-auto border border-border-primary rounded p-3">
             <div
               v-for="tool in BUILTIN_TOOLS"
               :key="tool.name"
               @click="toggleBuiltInTool(tool.name)"
-              class="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-50"
-              :class="isBuiltInToolSelected(tool.name) ? 'bg-green-50' : ''"
+              class="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-bg-hover"
+              :class="isBuiltInToolSelected(tool.name) ? 'bg-status-active/10' : ''"
             >
               <input
                 type="checkbox"
@@ -222,21 +222,21 @@ function isToolSelected(toolId: string) {
               />
               <div>
                 <span class="font-medium">{{ tool.name }}</span>
-                <p class="text-gray-500 text-sm">{{ tool.description }}</p>
+                <p class="text-text-muted text-sm">{{ tool.description }}</p>
               </div>
             </div>
           </div>
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Registered MCP Tools</label>
-          <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded p-3">
+          <label class="block text-sm font-medium text-text-secondary mb-2">Registered MCP Tools</label>
+          <div class="space-y-2 max-h-48 overflow-y-auto border border-border-primary rounded p-3">
             <div
               v-for="tool in toolsStore.tools.filter(t => t.type === 'MCP')"
               :key="tool.id"
               @click="toggleTool(tool.id)"
-              class="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-50"
-              :class="isToolSelected(tool.id) ? 'bg-blue-50' : ''"
+              class="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-bg-hover"
+              :class="isToolSelected(tool.id) ? 'bg-accent-primary/10' : ''"
             >
               <input
                 type="checkbox"
@@ -246,20 +246,20 @@ function isToolSelected(toolId: string) {
               />
               <div>
                 <span class="font-medium">{{ tool.name }}</span>
-                <p class="text-gray-500 text-sm">{{ tool.description || 'MCP tool' }}</p>
+                <p class="text-text-muted text-sm">{{ tool.description || 'MCP tool' }}</p>
               </div>
             </div>
-            <div v-if="toolsStore.tools.filter(t => t.type === 'MCP').length === 0" class="text-gray-500 text-sm">
+            <div v-if="toolsStore.tools.filter(t => t.type === 'MCP').length === 0" class="text-text-muted text-sm">
               No MCP tools registered. Go to Tools to register MCP servers.
             </div>
           </div>
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Text Model</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Text Model</label>
           <select
             v-model="form.text_model_config_id"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary"
           >
             <option value="">Default</option>
             <option v-for="m in modelsStore.models.filter(m => !m.modality || m.modality === 'text')" :key="m.id" :value="m.id">
@@ -269,10 +269,10 @@ function isToolSelected(toolId: string) {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Image Model</label>
+          <label class="block text-sm font-medium text-text-secondary mb-1">Image Model</label>
           <select
             v-model="form.image_model_config_id"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-border-primary rounded-lg focus:outline-none focus:border-accent-primary bg-bg-secondary text-text-primary"
           >
             <option value="">None</option>
             <option v-for="m in modelsStore.models.filter(m => m.modality && ['text-to-image', 'image-to-image', 'image-to-text'].includes(m.modality as string))" :key="m.id" :value="m.id">
@@ -281,7 +281,7 @@ function isToolSelected(toolId: string) {
           </select>
         </div>
 
-        <div v-if="error" class="text-red-500 text-sm">{{ error }}</div>
+        <div v-if="error" class="text-status-error text-sm">{{ error }}</div>
 
         <div class="flex space-x-2">
           <Button type="submit" :loading="saving">Save</Button>

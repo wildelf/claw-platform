@@ -69,18 +69,18 @@ function getProviderBadge(type: string): string {
 <template>
   <div class="space-y-6">
     <div class="flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-gray-900">Model Configurations</h1>
+      <h1 class="text-2xl font-bold text-text-primary">Model Configurations</h1>
       <router-link to="/models/create">
         <Button variant="primary">Create Model</Button>
       </router-link>
     </div>
 
-    <Card v-if="modelsStore.loading" class="text-center py-8 text-gray-500">
+    <Card v-if="modelsStore.loading" class="text-center py-8 text-text-muted">
       Loading...
     </Card>
 
     <Card v-else-if="modelsStore.models.length === 0" class="text-center py-8">
-      <p class="text-gray-500 mb-4">No model configurations yet</p>
+      <p class="text-text-muted mb-4">No model configurations yet</p>
       <router-link to="/models/create">
         <Button variant="primary">Create Your First Model</Button>
       </router-link>
@@ -89,18 +89,18 @@ function getProviderBadge(type: string): string {
     <Card v-else :padding="false">
       <Table :columns="columns" :data="modelsStore.models">
         <template #cell-name="{ row }">
-          <span class="font-medium">{{ row.name }}</span>
+          <span class="font-medium text-text-primary">{{ row.name }}</span>
         </template>
         <template #cell-type="{ row }">
-          <span class="px-2 py-1 rounded text-xs" :class="`bg-${getProviderBadge(row.type)}-100 text-${getProviderBadge(row.type)}-800`">
+          <span class="px-2 py-1 rounded text-xs bg-accent-primary/10 text-accent-light">
             {{ row.type }}
           </span>
         </template>
         <template #cell-model="{ row }">
-          <span class="text-gray-600">{{ row.model }}</span>
+          <span class="text-text-secondary">{{ row.model }}</span>
         </template>
         <template #cell-base_url="{ row }">
-          <span class="text-gray-500 text-sm">{{ row.base_url || '-' }}</span>
+          <span class="text-text-muted text-sm">{{ row.base_url || '-' }}</span>
         </template>
         <template #cell-actions="{ row }">
           <div class="flex gap-2">
@@ -108,7 +108,7 @@ function getProviderBadge(type: string): string {
             <Button variant="ghost" size="sm" @click="handleEdit(row.id)">Edit</Button>
             <Button variant="danger" size="sm" @click="handleDelete(row.id)">Delete</Button>
           </div>
-          <div v-if="row.testResult" class="mt-1 text-xs" :class="row.testResult.ok ? 'text-green-600' : 'text-red-600'">
+          <div v-if="row.testResult" class="mt-1 text-xs" :class="row.testResult.ok ? 'text-status-active' : 'text-status-error'">
             {{ row.testResult.message }}
           </div>
         </template>
