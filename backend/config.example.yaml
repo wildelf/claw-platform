@@ -1,0 +1,62 @@
+# Claw Platform - Example Configuration
+# Copy this file to config.yaml and fill in your actual values.
+# DO NOT commit config.yaml to version control.
+
+app:
+  name: "claw-platform"
+  debug: true
+  host: "0.0.0.0"
+  port: 8000
+  # Comma-separated list of allowed origins for CORS
+  # allowed_origins: "http://localhost:3000,http://127.0.0.1:3000"
+
+storage:
+  type: "sqlite"
+  sqlite:
+    path: "./data/claw.db"
+
+auth:
+  type: "jwt"
+  jwt:
+    # CHANGE THIS in production - use a strong random secret
+    secret: "${CLAW_JWT_SECRET}"
+    algorithm: "HS256"
+    expire_minutes: 1440
+
+models:
+  default:
+    type: "openai"
+    model: "gpt-4o"
+    # Set via environment variable: CLAW_MODEL_API_KEY
+    api_key: "${CLAW_MODEL_API_KEY}"
+    base_url: "https://api.openai.com/v1"
+
+evolution:
+  generation_threshold: 3
+  auto_evolve: false
+  max_versions: 10
+
+skill_creator:
+  path: ""
+
+opensandbox:
+  enabled: false
+  base_url: "http://127.0.0.1:8080"
+  default_image: "python:3.12-slim"
+  timeout: 300
+  memory_limit: "512Mi"
+
+web_search:
+  enabled: false
+  provider: "auto"
+  # Set via environment variable: CLAW_WEB_SEARCH_API_KEY
+  api_key: "${CLAW_WEB_SEARCH_API_KEY}"
+  base_url: "https://api.openai.com/v1"
+  mcp_command: "uvx"
+  mcp_args: []
+
+redis:
+  host: "localhost"
+  port: 6379
+  db: 0
+  password: null
