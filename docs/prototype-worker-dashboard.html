@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>运维面板 - Claw Platform</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #e6edf3; min-height: 100vh; }
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar { width: 240px; background: #161b22; border-right: 1px solid #30363d; padding: 20px 0; flex-shrink: 0; }
+    .sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid #30363d; margin-bottom: 16px; font-size: 18px; font-weight: 700; color: #58a6ff; }
+    .sidebar-logo span { color: #8b949e; font-weight: 400; font-size: 12px; display: block; margin-top: 4px; }
+    .nav-section { padding: 8px 16px; font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 20px; color: #8b949e; text-decoration: none; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+    .nav-item:hover { background: #1c2129; color: #e6edf3; }
+    .nav-item.active { background: #1c2129; color: #58a6ff; border-right: 2px solid #58a6ff; }
+    .main { flex: 1; padding: 32px; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .page-title { font-size: 24px; font-weight: 600; }
+    .btn { padding: 8px 16px; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #e6edf3; cursor: pointer; font-size: 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s; }
+    .btn:hover { background: #30363d; }
+    .btn-danger { background: transparent; border-color: #f85149; color: #f85149; }
+    .btn-danger:hover { background: #f8514920; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .tabs { display: flex; gap: 0; margin-bottom: 24px; border-bottom: 1px solid #30363d; }
+    .tab { padding: 12px 20px; font-size: 14px; color: #8b949e; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+    .tab:hover { color: #e6edf3; }
+    .tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 24px; margin-bottom: 20px; }
+    .card-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+    .stat-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; text-align: center; }
+    .stat-value { font-size: 36px; font-weight: 700; margin-bottom: 4px; }
+    .stat-label { font-size: 13px; color: #8b949e; }
+    .stat-queued .stat-value { color: #58a6ff; }
+    .stat-processing .stat-value { color: #d29922; }
+    .stat-completed .stat-value { color: #3fb950; }
+    .stat-failed .stat-value { color: #f85149; }
+    .info-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #21262d; }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: #8b949e; font-size: 14px; }
+    .info-value { font-size: 14px; font-family: 'JetBrains Mono', monospace; }
+    .status-online { color: #3fb950; }
+    .status-offline { color: #f85149; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 12px 16px; font-size: 12px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #30363d; font-weight: 500; }
+    td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #21262d; }
+    tr:hover td { background: #1c2129; }
+    .task-badge { padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+    .task-queued { background: #58a6ff20; color: #58a6ff; }
+    .task-processing { background: #d2992220; color: #d29922; }
+    .task-completed { background: #3fb95020; color: #3fb950; }
+    .task-failed { background: #f8514920; color: #f85149; }
+    .filter-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .filter-select { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 6px 12px; color: #e6edf3; font-size: 13px; }
+    .refresh-info { font-size: 12px; color: #8b949e; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+  </style>
+<script>
+function showPanel(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">Claw Platform <span>AI Digital Employees</span></div>
+      <div class="nav-section">数字员工</div>
+      <a class="nav-item">员工列表</a>
+      <a class="nav-item">新建员工</a>
+      <div class="nav-section">运维</div>
+      <a class="nav-item active">Worker 面板</a>
+      <a class="nav-item">任务管理</a>
+      <div class="nav-section">系统</div>
+      <a class="nav-item">设置</a>
+    </aside>
+    <main class="main">
+      <div class="page-header">
+        <h1 class="page-title">运维面板</h1>
+        <span class="refresh-info">自动刷新: 30s</span>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" onclick="showPanel('worker')">Worker 状态</div>
+        <div class="tab" onclick="showPanel('queue')">任务队列</div>
+        <div class="tab" onclick="showPanel('tasks')">任务管理</div>
+      </div>
+
+      <!-- Worker Panel -->
+      <div id="worker" class="panel active">
+        <div class="card">
+          <h2 class="card-title">Worker 状态</h2>
+          <div class="info-row"><span class="info-label">Worker ID</span><span class="info-value">worker:myhost:12345</span></div>
+          <div class="info-row"><span class="info-label">状态</span><span class="info-value status-online">&#9679; Online</span></div>
+          <div class="info-row"><span class="info-label">最后心跳</span><span class="info-value">2026-05-24 10:30:15</span></div>
+          <div class="info-row"><span class="info-label">心跳间隔</span><span class="info-value">3s 前</span></div>
+          <div class="info-row"><span class="info-label">启动时间</span><span class="info-value">2026-05-24 08:00:00</span></div>
+          <div class="info-row"><span class="info-label">运行时长</span><span class="info-value">2h 30m 15s</span></div>
+          <div class="info-row"><span class="info-label">Redis 连接</span><span class="info-value">localhost:6379</span></div>
+          <div style="margin-top:20px;display:flex;gap:8px;">
+            <button class="btn btn-danger">重启 Worker</button>
+            <button class="btn btn-danger">停止 Worker</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Queue Panel -->
+      <div id="queue" class="panel">
+        <div class="stats-grid">
+          <div class="stat-card stat-queued"><div class="stat-value">12</div><div class="stat-label">排队中</div></div>
+          <div class="stat-card stat-processing"><div class="stat-value">3</div><div class="stat-label">执行中</div></div>
+          <div class="stat-card stat-completed"><div class="stat-value">156</div><div class="stat-label">已完成(今日)</div></div>
+          <div class="stat-card stat-failed"><div class="stat-value">2</div><div class="stat-label">失败</div></div>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div><span style="color:#8b949e;font-size:14px;">已取消: </span><span style="color:#f85149;font-size:14px;">5</span></div>
+            <button class="btn btn-danger">清空队列</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tasks Panel -->
+      <div id="tasks" class="panel">
+        <div class="filter-bar">
+          <select class="filter-select">
+            <option>全部状态</option>
+            <option>排队中</option>
+            <option>执行中</option>
+            <option>已完成</option>
+            <option>失败</option>
+          </select>
+          <button class="btn">刷新</button>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden;">
+          <table>
+            <thead><tr><th>任务ID</th><th>员工名称</th><th>状态</th><th>创建时间</th><th>耗时</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td style="font-family:monospace;">t-001</td><td>张三</td><td><span class="task-badge task-processing">执行中</span></td><td>10:25:00</td><td>5m 15s</td><td><button class="btn btn-sm btn-danger">取消</button></td></tr>
+              <tr><td style="font-family:monospace;">t-002</td><td>李四</td><td><span class="task-badge task-queued">排队中</span></td><td>10:26:00</td><td>-</td><td><button class="btn btn-sm btn-danger">取消</button></td></tr>
+              <tr><td style="font-family:monospace;">t-003</td><td>张三</td><td><span class="task-badge task-completed">已完成</span></td><td>10:20:00</td><td>3m 42s</td><td>-</td></tr>
+              <tr><td style="font-family:monospace;">t-004</td><td>王五</td><td><span class="task-badge task-failed">失败</span></td><td>10:15:00</td><td>1m 05s</td><td>-</td></tr>
+              <tr><td style="font-family:monospace;">t-005</td><td>李四</td><td><span class="task-badge task-completed">已完成</span></td><td>10:10:00</td><td>2m 18s</td><td>-</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
