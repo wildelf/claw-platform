@@ -1,837 +1,752 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Phase 2 — Permission Management — Claw Platform</title>
+  <title>Permission Management — Claw Platform</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: { primary: '#0d1117', secondary: '#161b22', tertiary: '#1c2129', card: '#161b22', hover: '#1c2129' },
+            border: { primary: '#30363d' },
+            text: { primary: '#e6edf3', secondary: '#8b949e', muted: '#6e7681' },
+            accent: { primary: '#58a6ff', light: '#79c0ff' },
+            status: { active: '#3fb950', paused: '#d29922', error: '#f85149', info: '#58a6ff' },
+          }
+        }
+      }
+    }
+  </script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    :root {
-      --bg-primary: #0d1117;
-      --bg-secondary: #161b22;
-      --bg-tertiary: #1c2129;
-      --bg-card: #161b22;
-      --bg-hover: #1c2129;
-      --border-primary: #30363d;
-      --text-primary: #e6edf3;
-      --text-secondary: #8b949e;
-      --text-muted: #6e7681;
-      --accent-primary: #58a6ff;
-      --accent-light: #79c0ff;
-      --status-active: #3fb950;
-      --status-paused: #d29922;
-      --status-error: #f85149;
-      --status-info: #58a6ff;
-    }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
-    .layout { display: flex; min-height: 100vh; }
-    .sidebar { width: 240px; background: var(--bg-secondary); border-right: 1px solid var(--border-primary); padding: 20px 0; flex-shrink: 0; }
-    .sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid var(--border-primary); margin-bottom: 16px; font-size: 18px; font-weight: 700; color: var(--accent-primary); }
-    .sidebar-logo span { color: var(--text-secondary); font-weight: 400; font-size: 12px; display: block; margin-top: 4px; }
-    .nav-section { padding: 8px 16px; font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
-    .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 20px; color: var(--text-secondary); text-decoration: none; font-size: 14px; cursor: pointer; transition: all 0.15s; }
-    .nav-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
-    .nav-item.active { background: var(--bg-tertiary); color: var(--accent-primary); border-right: 2px solid var(--accent-primary); }
-    .main { flex: 1; padding: 32px; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .page-title { font-size: 24px; font-weight: 600; }
-    .page-subtitle { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
-    .btn { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border-primary); background: var(--bg-tertiary); color: var(--text-primary); cursor: pointer; font-size: 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s; }
-    .btn:hover { background: var(--border-primary); }
-    .btn-primary { background: #238636; border-color: #238636; color: #fff; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .card-hover { transition: border-color 0.2s, box-shadow 0.2s; }
+    .card-hover:hover { border-color: #58a6ff; box-shadow: 0 0 0 1px rgba(88,166,255,0.2); }
+    .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .btn-primary { background: #238636; border: 1px solid #238636; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
     .btn-primary:hover { background: #2ea043; }
-    .btn-sm { padding: 4px 10px; font-size: 12px; }
-    .btn-danger { background: #f8514920; border-color: #f8514940; color: var(--status-error); }
-    .btn-danger:hover { background: #f8514930; }
-    .btn-warning { background: #d2992220; border-color: #d2992240; color: var(--status-paused); }
-    .btn-warning:hover { background: #d2992230; }
-    .card { background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: 12px; padding: 20px; }
-    .grid { display: grid; gap: 16px; }
-    .grid-4 { grid-template-columns: repeat(4, 1fr); }
-    .grid-3 { grid-template-columns: repeat(3, 1fr); }
-    .grid-2 { grid-template-columns: repeat(2, 1fr); }
-    .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 2px 10px; border-radius: 12px; }
-    .badge-active { background: #3fb95020; color: #3fb950; }
-    .badge-warning { background: #d2992220; color: #d29922; }
-    .badge-danger { background: #f8514920; color: #f85149; }
-    .badge-info { background: #58a6ff20; color: #58a6ff; }
-    .badge-default { background: #8b949e20; color: #8b949e; }
+    .btn-secondary { background: #1c2129; border: 1px solid #30363d; color: #e6edf3; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+    .btn-secondary:hover { background: #30363d; }
+    .btn-danger-btn { background: rgba(248,81,73,0.1); color: #f85149; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+    .btn-danger-btn:hover { background: rgba(248,81,73,0.2); }
+    .btn-ghost { background: transparent; color: #8b949e; padding: 6px 12px; border-radius: 8px; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+    .btn-ghost:hover { background: #1c2129; color: #e6edf3; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
+    .badge-success { background: rgba(63,185,80,0.2); color: #3fb950; }
+    .badge-warning { background: rgba(210,153,34,0.2); color: #d29922; }
+    .badge-danger { background: rgba(248,81,73,0.2); color: #f85149; }
+    .badge-info { background: rgba(88,166,255,0.2); color: #58a6ff; }
+    .badge-default { background: rgba(139,148,158,0.2); color: #8b949e; }
     .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-    .search-bar { background: var(--bg-tertiary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 8px 12px 8px 36px; color: var(--text-primary); font-size: 14px; width: 240px; }
-    .search-bar:focus { outline: none; border-color: var(--accent-primary); }
-    .search-wrapper { position: relative; }
-    .search-wrapper svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); width: 16px; height: 16px; }
-    .header-actions { display: flex; align-items: center; gap: 12px; }
-    .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border-primary); margin-bottom: 24px; }
-    .tab { padding: 12px 20px; color: var(--text-secondary); cursor: pointer; font-size: 14px; border-bottom: 2px solid transparent; transition: all 0.15s; }
-    .tab:hover { color: var(--text-primary); }
-    .tab.active { color: var(--accent-primary); border-bottom-color: var(--accent-primary); }
-    table { width: 100%; border-collapse: collapse; }
-    thead { background: var(--bg-secondary); }
-    th { padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-primary); }
-    td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid var(--border-primary); color: var(--text-primary); }
-    tr:hover td { background: var(--bg-hover); }
     .mono { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; }
-    .text-muted { color: var(--text-muted); }
-    .text-secondary { color: var(--text-secondary); }
-    .text-accent { color: var(--accent-primary); }
-    .text-danger { color: var(--status-error); }
-    .text-warning { color: var(--status-paused); }
-    .text-success { color: var(--status-active); }
-    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px; }
-    .stat-card { }
-    .stat-label { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
-    .stat-value { font-size: 28px; font-weight: 700; }
-    .stat-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
-    .section-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-    .section-title .count { font-size: 12px; color: var(--text-muted); font-weight: 400; }
-    .empty-state { text-align: center; padding: 48px 20px; color: var(--text-muted); }
-    .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.5; }
-    .form-group { margin-bottom: 16px; }
-    .form-label { display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
-    .form-input { width: 100%; background: var(--bg-tertiary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 8px 12px; color: var(--text-primary); font-size: 14px; }
-    .form-input:focus { outline: none; border-color: var(--accent-primary); }
-    .form-select { width: 100%; background: var(--bg-tertiary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 8px 12px; color: var(--text-primary); font-size: 14px; appearance: none; }
-    .form-select:focus { outline: none; border-color: var(--accent-primary); }
-    textarea.form-input { min-height: 80px; resize: vertical; }
-    .risk-safe { color: var(--status-active); }
-    .risk-low { color: var(--status-active); }
-    .risk-medium { color: var(--status-paused); }
-    .risk-high { color: var(--status-error); }
-    .risk-critical { color: #f85149; font-weight: 700; }
-    .detail-panel { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 16px; margin-top: 16px; }
-    .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-primary); }
-    .detail-row:last-child { border-bottom: none; }
-    .detail-key { font-size: 13px; color: var(--text-muted); }
-    .detail-val { font-size: 13px; color: var(--text-primary); }
-    @media (max-width: 1024px) {
-      .grid-4 { grid-template-columns: repeat(2, 1fr); }
-      .sidebar { width: 200px; }
-    }
-    @media (max-width: 768px) {
-      .layout { flex-direction: column; }
-      .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border-primary); }
-      .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
-    }
+    .truncate-cell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 280px; }
   </style>
 </head>
-<body>
-  <div class="layout">
-    <aside class="sidebar">
-      <div class="sidebar-logo">Claw Platform <span>AI Digital Employees</span></div>
-      <div class="nav-section">数字员工</div>
-      <a class="nav-item">员工列表</a>
-      <a class="nav-item">新建员工</a>
-      <div class="nav-section">安全</div>
-      <a class="nav-item active">权限管理</a>
-      <a class="nav-item">审计日志</a>
-      <a class="nav-item">越权审批</a>
-      <div class="nav-section">运维</div>
-      <a class="nav-item">Worker 面板</a>
-      <a class="nav-item">任务管理</a>
-      <div class="nav-section">系统</div>
-      <a class="nav-item">设置</a>
-    </aside>
-    <main class="main">
-      <!-- Page Header -->
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">Permission Management</h1>
-          <p class="page-subtitle">Dual-layer permission verification: rule matching + LLM reasoning</p>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+
+  <!-- Top Header (matches AppHeader.vue) -->
+  <header class="fixed top-0 left-0 right-0 h-14 bg-bg-secondary border-b border-border-primary z-50">
+    <div class="flex items-center h-full px-4">
+      <div class="flex items-center gap-6">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 bg-accent-primary rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+          <span class="text-lg font-bold text-text-primary">Claw Platform</span>
         </div>
-        <div class="header-actions">
-          <button class="btn btn-primary" onclick="showCreateRule()">
+      </div>
+      <nav class="hidden lg:flex items-center justify-center flex-1 ml-6 space-x-1">
+        <a href="#" class="px-4 py-2 rounded-lg text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors text-sm">Dashboard</a>
+        <a href="#" class="px-4 py-2 rounded-lg text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors text-sm">Employee Profiles</a>
+        <a href="#" class="px-4 py-2 rounded-lg text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors text-sm">Skills</a>
+        <a href="#" class="px-4 py-2 rounded-lg text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors text-sm">Tools</a>
+        <a href="#" class="px-4 py-2 rounded-lg text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors text-sm">Operations</a>
+        <a href="#" class="px-4 py-2 rounded-lg bg-bg-tertiary text-text-primary font-medium transition-colors text-sm">Permissions</a>
+      </nav>
+      <div class="flex items-center gap-4 ml-auto">
+        <div class="flex items-center gap-3">
+          <span class="text-sm text-text-secondary">wilde</span>
+          <div class="w-9 h-9 rounded-lg bg-accent-primary flex items-center justify-center text-white font-medium">W</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content (pt-14 for header offset, space-y-6 for spacing) -->
+  <main class="pt-14">
+    <div class="space-y-6 p-6">
+
+      <!-- Page Header (matches SkillsView/EmployeeProfilesView pattern) -->
+      <div class="flex justify-between items-center">
+        <div>
+          <h1 class="text-2xl font-bold text-text-primary">Permission Management</h1>
+          <p class="text-text-secondary mt-1">Dual-layer permission verification: rule matching + LLM reasoning</p>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn-primary text-white flex items-center gap-2" onclick="showCreateRule()">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             Create Rule
           </button>
         </div>
       </div>
 
-      <!-- Stats Cards -->
-      <div class="grid grid-4" style="margin-bottom: 24px;">
-        <div class="card stat-card">
-          <div class="stat-label">Total Rules</div>
-          <div class="stat-value text-accent">8</div>
-          <div class="stat-sub">6 active, 2 disabled</div>
+      <!-- Stats Cards (4-column grid like WorkerDashboardView) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-bg-card border border-border-primary rounded-xl p-5">
+          <div class="text-sm text-text-muted mb-3">Total Rules</div>
+          <div class="text-2xl font-bold text-accent-primary">8</div>
+          <div class="text-xs text-text-muted mt-1">6 active, 2 disabled</div>
         </div>
-        <div class="card stat-card">
-          <div class="stat-label">Decisions (24h)</div>
-          <div class="stat-value text-success">1,247</div>
-          <div class="stat-sub">99.2% allowed</div>
+        <div class="bg-bg-card border border-border-primary rounded-xl p-5">
+          <div class="text-sm text-text-muted mb-3">Decisions (24h)</div>
+          <div class="text-2xl font-bold text-status-active">1,247</div>
+          <div class="text-xs text-text-muted mt-1">99.2% allowed</div>
         </div>
-        <div class="card stat-card">
-          <div class="stat-label">Blocked (24h)</div>
-          <div class="stat-value text-danger">10</div>
-          <div class="stat-sub">3 critical, 7 high</div>
+        <div class="bg-bg-card border border-border-primary rounded-xl p-5">
+          <div class="text-sm text-text-muted mb-3">Blocked (24h)</div>
+          <div class="text-2xl font-bold text-status-error">10</div>
+          <div class="text-xs text-text-muted mt-1">3 critical, 7 high</div>
         </div>
-        <div class="card stat-card">
-          <div class="stat-label">Pending Overrides</div>
-          <div class="stat-value text-warning">2</div>
-          <div class="stat-sub">Awaiting approval</div>
+        <div class="bg-bg-card border border-border-primary rounded-xl p-5">
+          <div class="text-sm text-text-muted mb-3">Pending Overrides</div>
+          <div class="text-2xl font-bold text-status-paused">2</div>
+          <div class="text-xs text-text-muted mt-1">Awaiting approval</div>
         </div>
       </div>
 
       <!-- Tabs -->
-      <div class="tabs">
-        <div class="tab active" onclick="switchTab('rules')">Permission Rules</div>
-        <div class="tab" onclick="switchTab('audit')">Audit Logs</div>
-        <div class="tab" onclick="switchTab('overrides')">Override Requests</div>
+      <div class="flex gap-0 border-b border-border-primary">
+        <div class="px-5 py-3 text-sm text-accent-primary border-b-2 border-accent-primary cursor-pointer font-medium" onclick="switchTab('rules')" id="tab-btn-rules">Permission Rules</div>
+        <div class="px-5 py-3 text-sm text-text-secondary hover:text-text-primary cursor-pointer transition-colors" onclick="switchTab('audit')" id="tab-btn-audit">Audit Logs</div>
+        <div class="px-5 py-3 text-sm text-text-secondary hover:text-text-primary cursor-pointer transition-colors" onclick="switchTab('overrides')" id="tab-btn-overrides">Override Requests</div>
       </div>
 
-      <!-- Tab: Rules -->
-      <div id="tab-rules">
-        <div class="card" style="margin-bottom: 24px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-            <div class="section-title" style="margin-bottom: 0;">
-              Rules
-              <span class="count">8 total</span>
-            </div>
-            <div class="header-actions">
-              <div class="search-wrapper">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                <input class="search-bar" type="text" placeholder="Search rules...">
+      <!-- ===== TAB: Permission Rules ===== -->
+      <div id="tab-rules" class="space-y-6">
+        <div class="bg-bg-card border border-border-primary rounded-xl">
+          <div class="px-5 py-4 border-b border-border-primary flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-text-primary">Rules <span class="text-sm text-text-muted font-normal ml-2">8 total</span></h3>
+            <div class="flex items-center gap-3">
+              <div class="relative">
+                <input type="text" placeholder="Search rules..." class="bg-bg-tertiary border border-border-primary rounded-lg pl-10 pr-4 py-2 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-primary w-56"/>
+                <svg class="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
               </div>
-              <select class="form-select" style="width: 160px;">
-                <option>All Categories</option>
-                <option>READ</option>
-                <option>WRITE</option>
-                <option>DELETE</option>
-                <option>EXECUTE</option>
-                <option>NETWORK</option>
-                <option>PRODUCTION</option>
+              <select class="bg-bg-tertiary border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary">
+                <option>All Categories</option><option>READ</option><option>WRITE</option><option>DELETE</option><option>EXECUTE</option><option>NETWORK</option><option>PRODUCTION</option>
               </select>
-              <select class="form-select" style="width: 140px;">
-                <option>All Status</option>
-                <option>Enabled</option>
-                <option>Disabled</option>
+              <select class="bg-bg-tertiary border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary">
+                <option>All Status</option><option>Enabled</option><option>Disabled</option>
               </select>
             </div>
           </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Category</th>
-                <th>Risk Level</th>
-                <th>Action</th>
-                <th>Pattern</th>
-                <th>Priority</th>
-                <th>Status</th>
-                <th>Updated</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>Safe file read</strong></td>
-                <td><span class="badge badge-info">READ</span></td>
-                <td><span class="text-success">safe</span></td>
-                <td><span class="badge badge-active">ALLOW</span></td>
-                <td class="mono truncate">^(?!.*\.(env|key|pem)$).*$</td>
-                <td>10</td>
-                <td><span class="badge badge-active"><span class="badge-dot"></span>Enabled</span></td>
-                <td class="text-muted">2026-05-24</td>
-                <td>
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-sm">Edit</button>
-                    <button class="btn btn-sm btn-warning">Disable</button>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td><strong>Config file write</strong></td>
-                <td><span class="badge badge-info">WRITE</span></td>
-                <td><span class="text-success">low</span></td>
-                <td><span class="badge badge-active">ALLOW</span></td>
-                <td class="mono truncate">\.(yaml|yml|json|toml|ini)$</td>
-                <td>9</td>
-                <td><span class="badge badge-active"><span class="badge-dot"></span>Enabled</span></td>
-                <td class="text-muted">2026-05-24</td>
-                <td>
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-sm">Edit</button>
-                    <button class="btn btn-sm btn-warning">Disable</button>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td><strong>Delete detection</strong></td>
-                <td><span class="badge badge-warning">DELETE</span></td>
-                <td><span class="text-danger">high</span></td>
-                <td><span class="badge badge-danger">DENY</span></td>
-                <td class="mono truncate">(rm|rmdir|unlink|DROP|DELETE FROM)</td>
-                <td>8</td>
-                <td><span class="badge badge-active"><span class="badge-dot"></span>Enabled</span></td>
-                <td class="text-muted">2026-05-24</td>
-                <td>
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-sm">Edit</button>
-                    <button class="btn btn-sm btn-warning">Disable</button>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td><strong>Dangerous bash</strong></td>
-                <td><span class="badge badge-danger">EXECUTE</span></td>
-                <td><span class="risk-critical">critical</span></td>
-                <td><span class="badge badge-danger">DENY</span></td>
-                <td class="mono truncate">(rm\s+-rf|mkfs|dd\s+if=|chmod\s+777)</td>
-                <td>10</td>
-                <td><span class="badge badge-active"><span class="badge-dot"></span>Enabled</span></td>
-                <td class="text-muted">2026-05-24</td>
-                <td>
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-sm">Edit</button>
-                    <button class="btn btn-sm btn-warning">Disable</button>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td><strong>Production access</strong></td>
-                <td><span class="badge badge-danger">PRODUCTION</span></td>
-                <td><span class="text-danger">high</span></td>
-                <td><span class="badge badge-warning">APPROVAL</span></td>
-                <td class="mono truncate">(prod|production|live) in path</td>
-                <td>7</td>
-                <td><span class="badge badge-active"><span class="badge-dot"></span>Enabled</span></td>
-                <td class="text-muted">2026-05-24</td>
-                <td>
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-sm">Edit</button>
-                    <button class="btn btn-sm btn-warning">Disable</button>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td><strong>Secret file access</strong></td>
-                <td><span class="badge badge-info">READ</span></td>
-                <td><span class="text-danger">high</span></td>
-                <td><span class="badge badge-danger">DENY</span></td>
-                <td class="mono truncate">\.(env|key|pem|credentials)$</td>
-                <td>9</td>
-                <td><span class="badge badge-active"><span class="badge-dot"></span>Enabled</span></td>
-                <td class="text-muted">2026-05-24</td>
-                <td>
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-sm">Edit</button>
-                    <button class="btn btn-sm btn-warning">Disable</button>
-                  </div>
-                </td>
-              </tr>
-              <tr style="opacity: 0.5;">
-                <td><strong>Network allowlist</strong></td>
-                <td><span class="badge badge-info">NETWORK</span></td>
-                <td><span class="text-success">low</span></td>
-                <td><span class="badge badge-active">ALLOW</span></td>
-                <td class="mono truncate">^(https?://api\.allowed-domain\.com/)</td>
-                <td>5</td>
-                <td><span class="badge badge-default"><span class="badge-dot"></span>Disabled</span></td>
-                <td class="text-muted">2026-05-20</td>
-                <td>
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-sm">Edit</button>
-                    <button class="btn btn-sm btn-primary">Enable</button>
-                  </div>
-                </td>
-              </tr>
-              <tr style="opacity: 0.5;">
-                <td><strong>Script execution</strong></td>
-                <td><span class="badge badge-danger">EXECUTE</span></td>
-                <td><span class="text-warning">medium</span></td>
-                <td><span class="badge badge-info">ALLOW (logged)</span></td>
-                <td class="mono truncate">\.(sh|py|js|rb)$ via bash</td>
-                <td>6</td>
-                <td><span class="badge badge-default"><span class="badge-dot"></span>Disabled</span></td>
-                <td class="text-muted">2026-05-20</td>
-                <td>
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-sm">Edit</button>
-                    <button class="btn btn-sm btn-primary">Enable</button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-border-primary">
+              <thead class="bg-bg-secondary">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Name</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Category</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Risk</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Action</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Pattern</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Priority</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Status</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border-primary">
+                <tr class="hover:bg-bg-hover transition-colors">
+                  <td class="px-4 py-3 text-sm font-medium text-text-primary">Safe file read</td>
+                  <td class="px-4 py-3"><span class="badge badge-info">READ</span></td>
+                  <td class="px-4 py-3 text-sm text-status-active">safe</td>
+                  <td class="px-4 py-3"><span class="badge badge-success">ALLOW</span></td>
+                  <td class="px-4 py-3 mono text-text-secondary truncate-cell">^(?!.*\.(env|key|pem)$).*$</td>
+                  <td class="px-4 py-3 text-sm text-text-primary">10</td>
+                  <td class="px-4 py-3"><span class="badge badge-success"><span class="badge-dot"></span>Enabled</span></td>
+                  <td class="px-4 py-3">
+                    <div class="flex gap-2">
+                      <button class="btn-ghost btn-sm">Edit</button>
+                      <button class="btn-ghost btn-sm text-status-paused hover:text-status-paused">Disable</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="hover:bg-bg-hover transition-colors">
+                  <td class="px-4 py-3 text-sm font-medium text-text-primary">Config file write</td>
+                  <td class="px-4 py-3"><span class="badge badge-info">WRITE</span></td>
+                  <td class="px-4 py-3 text-sm text-status-active">low</td>
+                  <td class="px-4 py-3"><span class="badge badge-success">ALLOW</span></td>
+                  <td class="px-4 py-3 mono text-text-secondary truncate-cell">\.(yaml|yml|json|toml|ini)$</td>
+                  <td class="px-4 py-3 text-sm text-text-primary">9</td>
+                  <td class="px-4 py-3"><span class="badge badge-success"><span class="badge-dot"></span>Enabled</span></td>
+                  <td class="px-4 py-3">
+                    <div class="flex gap-2">
+                      <button class="btn-ghost btn-sm">Edit</button>
+                      <button class="btn-ghost btn-sm text-status-paused hover:text-status-paused">Disable</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="hover:bg-bg-hover transition-colors">
+                  <td class="px-4 py-3 text-sm font-medium text-text-primary">Delete detection</td>
+                  <td class="px-4 py-3"><span class="badge badge-warning">DELETE</span></td>
+                  <td class="px-4 py-3 text-sm text-status-error">high</td>
+                  <td class="px-4 py-3"><span class="badge badge-danger">DENY</span></td>
+                  <td class="px-4 py-3 mono text-text-secondary truncate-cell">(rm|rmdir|unlink|DROP|DELETE FROM)</td>
+                  <td class="px-4 py-3 text-sm text-text-primary">8</td>
+                  <td class="px-4 py-3"><span class="badge badge-success"><span class="badge-dot"></span>Enabled</span></td>
+                  <td class="px-4 py-3">
+                    <div class="flex gap-2">
+                      <button class="btn-ghost btn-sm">Edit</button>
+                      <button class="btn-ghost btn-sm text-status-paused hover:text-status-paused">Disable</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="hover:bg-bg-hover transition-colors">
+                  <td class="px-4 py-3 text-sm font-medium text-text-primary">Dangerous bash</td>
+                  <td class="px-4 py-3"><span class="badge badge-danger">EXECUTE</span></td>
+                  <td class="px-4 py-3 text-sm text-status-error font-bold">critical</td>
+                  <td class="px-4 py-3"><span class="badge badge-danger">DENY</span></td>
+                  <td class="px-4 py-3 mono text-text-secondary truncate-cell">(rm\s+-rf|mkfs|dd\s+if=|chmod\s+777)</td>
+                  <td class="px-4 py-3 text-sm text-text-primary">10</td>
+                  <td class="px-4 py-3"><span class="badge badge-success"><span class="badge-dot"></span>Enabled</span></td>
+                  <td class="px-4 py-3">
+                    <div class="flex gap-2">
+                      <button class="btn-ghost btn-sm">Edit</button>
+                      <button class="btn-ghost btn-sm text-status-paused hover:text-status-paused">Disable</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="hover:bg-bg-hover transition-colors">
+                  <td class="px-4 py-3 text-sm font-medium text-text-primary">Production access</td>
+                  <td class="px-4 py-3"><span class="badge badge-danger">PRODUCTION</span></td>
+                  <td class="px-4 py-3 text-sm text-status-error">high</td>
+                  <td class="px-4 py-3"><span class="badge badge-warning">APPROVAL</span></td>
+                  <td class="px-4 py-3 mono text-text-secondary truncate-cell">(prod|production|live) in path</td>
+                  <td class="px-4 py-3 text-sm text-text-primary">7</td>
+                  <td class="px-4 py-3"><span class="badge badge-success"><span class="badge-dot"></span>Enabled</span></td>
+                  <td class="px-4 py-3">
+                    <div class="flex gap-2">
+                      <button class="btn-ghost btn-sm">Edit</button>
+                      <button class="btn-ghost btn-sm text-status-paused hover:text-status-paused">Disable</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="hover:bg-bg-hover transition-colors">
+                  <td class="px-4 py-3 text-sm font-medium text-text-primary">Secret file access</td>
+                  <td class="px-4 py-3"><span class="badge badge-info">READ</span></td>
+                  <td class="px-4 py-3 text-sm text-status-error">high</td>
+                  <td class="px-4 py-3"><span class="badge badge-danger">DENY</span></td>
+                  <td class="px-4 py-3 mono text-text-secondary truncate-cell">\.(env|key|pem|credentials)$</td>
+                  <td class="px-4 py-3 text-sm text-text-primary">9</td>
+                  <td class="px-4 py-3"><span class="badge badge-success"><span class="badge-dot"></span>Enabled</span></td>
+                  <td class="px-4 py-3">
+                    <div class="flex gap-2">
+                      <button class="btn-ghost btn-sm">Edit</button>
+                      <button class="btn-ghost btn-sm text-status-paused hover:text-status-paused">Disable</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="hover:bg-bg-hover transition-colors opacity-50">
+                  <td class="px-4 py-3 text-sm font-medium text-text-primary">Network allowlist</td>
+                  <td class="px-4 py-3"><span class="badge badge-info">NETWORK</span></td>
+                  <td class="px-4 py-3 text-sm text-status-active">low</td>
+                  <td class="px-4 py-3"><span class="badge badge-success">ALLOW</span></td>
+                  <td class="px-4 py-3 mono text-text-secondary truncate-cell">^(https?://api\.allowed-domain\.com/)</td>
+                  <td class="px-4 py-3 text-sm text-text-primary">5</td>
+                  <td class="px-4 py-3"><span class="badge badge-default"><span class="badge-dot"></span>Disabled</span></td>
+                  <td class="px-4 py-3">
+                    <div class="flex gap-2">
+                      <button class="btn-ghost btn-sm">Edit</button>
+                      <button class="btn-ghost btn-sm text-accent-primary hover:text-accent-light">Enable</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="hover:bg-bg-hover transition-colors opacity-50">
+                  <td class="px-4 py-3 text-sm font-medium text-text-primary">Script execution</td>
+                  <td class="px-4 py-3"><span class="badge badge-danger">EXECUTE</span></td>
+                  <td class="px-4 py-3 text-sm text-status-paused">medium</td>
+                  <td class="px-4 py-3"><span class="badge badge-info">ALLOW (logged)</span></td>
+                  <td class="px-4 py-3 mono text-text-secondary truncate-cell">\.(sh|py|js|rb)$ via bash</td>
+                  <td class="px-4 py-3 text-sm text-text-primary">6</td>
+                  <td class="px-4 py-3"><span class="badge badge-default"><span class="badge-dot"></span>Disabled</span></td>
+                  <td class="px-4 py-3">
+                    <div class="flex gap-2">
+                      <button class="btn-ghost btn-sm">Edit</button>
+                      <button class="btn-ghost btn-sm text-accent-primary hover:text-accent-light">Enable</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <!-- Create Rule Modal (hidden by default, shown for demo) -->
-        <div class="card" style="display: none;" id="create-rule-form">
-          <div class="section-title">Create Permission Rule</div>
-          <div class="grid grid-2">
-            <div class="form-group">
-              <label class="form-label">Rule Name</label>
-              <input class="form-input" type="text" placeholder="e.g., Block database deletion">
+        <!-- Create Rule Form (matches AgentCreateView pattern) -->
+        <div class="bg-bg-card border border-border-primary rounded-xl" id="create-rule-form" style="display:none;">
+          <div class="px-5 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Create Permission Rule</h3>
+          </div>
+          <div class="p-5 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-text-secondary mb-1">Rule Name</label>
+                <input type="text" placeholder="e.g., Block database deletion" class="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-secondary text-text-primary focus:outline-none focus:border-accent-primary"/>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-text-secondary mb-1">Category</label>
+                <select class="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-secondary text-text-primary focus:outline-none focus:border-accent-primary">
+                  <option>READ</option><option>WRITE</option><option>DELETE</option><option>EXECUTE</option><option>NETWORK</option><option>PRODUCTION</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-text-secondary mb-1">Risk Level</label>
+                <select class="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-secondary text-text-primary focus:outline-none focus:border-accent-primary">
+                  <option>safe</option><option>low</option><option>medium</option><option selected>high</option><option>critical</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-text-secondary mb-1">Action</label>
+                <select class="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-secondary text-text-primary focus:outline-none focus:border-accent-primary">
+                  <option>ALLOW</option><option selected>DENY</option><option>REQUIRE_APPROVAL</option>
+                </select>
+              </div>
             </div>
-            <div class="form-group">
-              <label class="form-label">Category</label>
-              <select class="form-select">
-                <option>READ</option>
-                <option>WRITE</option>
-                <option>DELETE</option>
-                <option>EXECUTE</option>
-                <option>NETWORK</option>
-                <option>PRODUCTION</option>
-              </select>
+            <div>
+              <label class="block text-sm font-medium text-text-secondary mb-1">Regex Pattern</label>
+              <input type="text" placeholder="e.g., (DROP DATABASE|DELETE FROM)" class="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-secondary mono text-text-primary focus:outline-none focus:border-accent-primary"/>
             </div>
-            <div class="form-group">
-              <label class="form-label">Risk Level</label>
-              <select class="form-select">
-                <option>safe</option>
-                <option>low</option>
-                <option>medium</option>
-                <option selected>high</option>
-                <option>critical</option>
-              </select>
+            <div>
+              <label class="block text-sm font-medium text-text-secondary mb-1">Description</label>
+              <textarea rows="3" placeholder="Describe what this rule protects against..." class="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-secondary text-text-primary focus:outline-none focus:border-accent-primary resize-none"></textarea>
             </div>
-            <div class="form-group">
-              <label class="form-label">Action</label>
-              <select class="form-select">
-                <option>ALLOW</option>
-                <option selected>DENY</option>
-                <option>REQUIRE_APPROVAL</option>
-              </select>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-text-secondary mb-1">Priority (1-10)</label>
+                <input type="number" value="8" min="1" max="10" class="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-secondary text-text-primary focus:outline-none focus:border-accent-primary"/>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-text-secondary mb-1">Scope</label>
+                <select class="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-secondary text-text-primary focus:outline-none focus:border-accent-primary">
+                  <option>Global (all employees)</option><option>Specific employee...</option>
+                </select>
+              </div>
             </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Regex Pattern</label>
-            <input class="form-input mono" type="text" placeholder="e.g., (DROP DATABASE|DELETE FROM)">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Description</label>
-            <textarea class="form-input" placeholder="Describe what this rule protects against..."></textarea>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Priority (1-10, higher = checked first)</label>
-            <input class="form-input" type="number" value="8" min="1" max="10">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Scope</label>
-            <select class="form-select">
-              <option>Global (all employees)</option>
-              <option>Specific employee...</option>
-            </select>
-          </div>
-          <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px;">
-            <button class="btn" onclick="hideCreateRule()">Cancel</button>
-            <button class="btn btn-primary">Create Rule</button>
+            <div class="flex gap-2 justify-end pt-4 border-t border-border-primary">
+              <button class="btn-secondary" onclick="hideCreateRule()">Cancel</button>
+              <button class="btn-primary text-white">Create Rule</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Tab: Audit Logs -->
-      <div id="tab-audit" style="display: none;">
-        <div class="card" style="margin-bottom: 24px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-            <div class="section-title" style="margin-bottom: 0;">
-              Audit Logs
-              <span class="count">1,247 entries in last 24h</span>
-            </div>
-            <div class="header-actions">
-              <div class="search-wrapper">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                <input class="search-bar" type="text" placeholder="Search logs...">
+      <!-- ===== TAB: Audit Logs ===== -->
+      <div id="tab-audit" class="space-y-6" style="display:none;">
+        <div class="bg-bg-card border border-border-primary rounded-xl">
+          <div class="px-5 py-4 border-b border-border-primary flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-text-primary">Audit Logs <span class="text-sm text-text-muted font-normal ml-2">1,247 entries in last 24h</span></h3>
+            <div class="flex items-center gap-3">
+              <div class="relative">
+                <input type="text" placeholder="Search logs..." class="bg-bg-tertiary border border-border-primary rounded-lg pl-10 pr-4 py-2 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-primary w-56"/>
+                <svg class="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
               </div>
-              <select class="form-select" style="width: 140px;">
-                <option>All Decisions</option>
-                <option>ALLOW</option>
-                <option>DENY</option>
-                <option>REQUIRE_APPROVAL</option>
+              <select class="bg-bg-tertiary border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary">
+                <option>All Decisions</option><option>ALLOW</option><option>DENY</option><option>REQUIRE_APPROVAL</option>
               </select>
-              <select class="form-select" style="width: 140px;">
-                <option>All Risk Levels</option>
-                <option>safe</option>
-                <option>low</option>
-                <option>medium</option>
-                <option>high</option>
-                <option>critical</option>
+              <select class="bg-bg-tertiary border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary">
+                <option>All Risk</option><option>safe</option><option>low</option><option>medium</option><option>high</option><option>critical</option>
               </select>
-              <button class="btn btn-sm">
+              <button class="btn-secondary btn-sm flex items-center gap-1">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                 Refresh
               </button>
             </div>
           </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Employee</th>
-                <th>Tool</th>
-                <th>Input</th>
-                <th>Risk</th>
-                <th>Decision</th>
-                <th>Evaluator</th>
-                <th>Latency</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="mono text-muted">14:32:01</td>
-                <td><strong>张三</strong><br><span class="text-muted mono" style="font-size:11px;">emp-001</span></td>
-                <td><span class="mono">read_file</span></td>
-                <td class="mono text-muted truncate">docs/phase1-api.md</td>
-                <td><span class="text-success">safe</span></td>
-                <td><span class="badge badge-active">ALLOW</span></td>
-                <td><span class="badge badge-default">RuleMatcher</span></td>
-                <td class="mono text-muted">8ms</td>
-                <td><button class="btn btn-sm" onclick="showLogDetail(1)">Detail</button></td>
-              </tr>
-              <tr>
-                <td class="mono text-muted">14:31:45</td>
-                <td><strong>李四</strong><br><span class="text-muted mono" style="font-size:11px;">emp-002</span></td>
-                <td><span class="mono">bash</span></td>
-                <td class="mono text-danger truncate">rm -rf /tmp/production/</td>
-                <td><span class="risk-critical">critical</span></td>
-                <td><span class="badge badge-danger">DENY</span></td>
-                <td><span class="badge badge-default">RuleMatcher</span></td>
-                <td class="mono text-muted">12ms</td>
-                <td><button class="btn btn-sm" onclick="showLogDetail(2)">Detail</button></td>
-              </tr>
-              <tr>
-                <td class="mono text-muted">14:30:22</td>
-                <td><strong>王五</strong><br><span class="text-muted mono" style="font-size:11px;">emp-003</span></td>
-                <td><span class="mono">write_file</span></td>
-                <td class="mono text-muted truncate">config/app.yaml</td>
-                <td><span class="text-success">low</span></td>
-                <td><span class="badge badge-active">ALLOW</span></td>
-                <td><span class="badge badge-default">RuleMatcher</span></td>
-                <td class="mono text-muted">5ms</td>
-                <td><button class="btn btn-sm" onclick="showLogDetail(3)">Detail</button></td>
-              </tr>
-              <tr>
-                <td class="mono text-muted">14:28:10</td>
-                <td><strong>赵六</strong><br><span class="text-muted mono" style="font-size:11px;">emp-004</span></td>
-                <td><span class="mono">bash</span></td>
-                <td class="mono text-muted truncate">python analyze.py --mode=deep</td>
-                <td><span class="text-warning">medium</span></td>
-                <td><span class="badge badge-active">ALLOW</span></td>
-                <td><span class="badge badge-info">ReasoningJudge</span></td>
-                <td class="mono text-muted">2.3s</td>
-                <td><button class="btn btn-sm" onclick="showLogDetail(4)">Detail</button></td>
-              </tr>
-              <tr>
-                <td class="mono text-muted">14:25:33</td>
-                <td><strong>张三</strong><br><span class="text-muted mono" style="font-size:11px;">emp-001</span></td>
-                <td><span class="mono">read_file</span></td>
-                <td class="mono text-danger truncate">.env.production</td>
-                <td><span class="text-danger">high</span></td>
-                <td><span class="badge badge-danger">DENY</span></td>
-                <td><span class="badge badge-default">RuleMatcher</span></td>
-                <td class="mono text-muted">3ms</td>
-                <td><button class="btn btn-sm" onclick="showLogDetail(5)">Detail</button></td>
-              </tr>
-              <tr>
-                <td class="mono text-muted">14:22:18</td>
-                <td><strong>李四</strong><br><span class="text-muted mono" style="font-size:11px;">emp-002</span></td>
-                <td><span class="mono">web_search</span></td>
-                <td class="mono text-muted truncate">competitor analysis 2026</td>
-                <td><span class="text-success">safe</span></td>
-                <td><span class="badge badge-active">ALLOW</span></td>
-                <td><span class="badge badge-default">RuleMatcher</span></td>
-                <td class="mono text-muted">6ms</td>
-                <td><button class="btn btn-sm" onclick="showLogDetail(6)">Detail</button></td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-border-primary">
+              <thead class="bg-bg-secondary">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Time</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Employee</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Tool</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Input</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Risk</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Decision</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Evaluator</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Latency</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border-primary">
+                <tr class="hover:bg-bg-hover transition-colors">
+                  <td class="px-4 py-3 mono text-text-muted">14:32:01</td>
+                  <td class="px-4 py-3"><div class="text-sm font-medium text-text-primary">Zhang San</div><div class="mono text-text-muted" style="font-size:11px;">emp-001</div></td>
+                  <td class="px-4 py-3 mono text-sm">read_file</td>
+                  <td class="px-4 py-3 mono text-text-secondary truncate-cell">docs/phase1-api.md</td>
+                  <td class="px-4 py-3 text-sm text-status-active">safe</td>
+                  <td class="px-4 py-3"><span class="badge badge-success">ALLOW</span></td>
+                  <td class="px-4 py-3"><span class="badge badge-default">RuleMatcher</span></td>
+                  <td class="px-4 py-3 mono text-text-muted">8ms</td>
+                  <td class="px-4 py-3"><button class="btn-ghost btn-sm" onclick="showLogDetail()">Detail</button></td>
+                </tr>
+                <tr class="hover:bg-bg-hover transition-colors">
+                  <td class="px-4 py-3 mono text-text-muted">14:31:45</td>
+                  <td class="px-4 py-3"><div class="text-sm font-medium text-text-primary">Li Si</div><div class="mono text-text-muted" style="font-size:11px;">emp-002</div></td>
+                  <td class="px-4 py-3 mono text-sm">bash</td>
+                  <td class="px-4 py-3 mono text-status-error truncate-cell">rm -rf /tmp/production/</td>
+                  <td class="px-4 py-3 text-sm text-status-error font-bold">critical</td>
+                  <td class="px-4 py-3"><span class="badge badge-danger">DENY</span></td>
+                  <td class="px-4 py-3"><span class="badge badge-default">RuleMatcher</span></td>
+                  <td class="px-4 py-3 mono text-text-muted">12ms</td>
+                  <td class="px-4 py-3"><button class="btn-ghost btn-sm" onclick="showLogDetail()">Detail</button></td>
+                </tr>
+                <tr class="hover:bg-bg-hover transition-colors">
+                  <td class="px-4 py-3 mono text-text-muted">14:30:22</td>
+                  <td class="px-4 py-3"><div class="text-sm font-medium text-text-primary">Wang Wu</div><div class="mono text-text-muted" style="font-size:11px;">emp-003</div></td>
+                  <td class="px-4 py-3 mono text-sm">write_file</td>
+                  <td class="px-4 py-3 mono text-text-secondary truncate-cell">config/app.yaml</td>
+                  <td class="px-4 py-3 text-sm text-status-active">low</td>
+                  <td class="px-4 py-3"><span class="badge badge-success">ALLOW</span></td>
+                  <td class="px-4 py-3"><span class="badge badge-default">RuleMatcher</span></td>
+                  <td class="px-4 py-3 mono text-text-muted">5ms</td>
+                  <td class="px-4 py-3"><button class="btn-ghost btn-sm" onclick="showLogDetail()">Detail</button></td>
+                </tr>
+                <tr class="hover:bg-bg-hover transition-colors">
+                  <td class="px-4 py-3 mono text-text-muted">14:28:10</td>
+                  <td class="px-4 py-3"><div class="text-sm font-medium text-text-primary">Zhao Liu</div><div class="mono text-text-muted" style="font-size:11px;">emp-004</div></td>
+                  <td class="px-4 py-3 mono text-sm">bash</td>
+                  <td class="px-4 py-3 mono text-text-secondary truncate-cell">python analyze.py --mode=deep</td>
+                  <td class="px-4 py-3 text-sm text-status-paused">medium</td>
+                  <td class="px-4 py-3"><span class="badge badge-success">ALLOW</span></td>
+                  <td class="px-4 py-3"><span class="badge badge-info">ReasoningJudge</span></td>
+                  <td class="px-4 py-3 mono text-text-muted">2.3s</td>
+                  <td class="px-4 py-3"><button class="btn-ghost btn-sm" onclick="showLogDetail()">Detail</button></td>
+                </tr>
+                <tr class="hover:bg-bg-hover transition-colors">
+                  <td class="px-4 py-3 mono text-text-muted">14:25:33</td>
+                  <td class="px-4 py-3"><div class="text-sm font-medium text-text-primary">Zhang San</div><div class="mono text-text-muted" style="font-size:11px;">emp-001</div></td>
+                  <td class="px-4 py-3 mono text-sm">read_file</td>
+                  <td class="px-4 py-3 mono text-status-error truncate-cell">.env.production</td>
+                  <td class="px-4 py-3 text-sm text-status-error">high</td>
+                  <td class="px-4 py-3"><span class="badge badge-danger">DENY</span></td>
+                  <td class="px-4 py-3"><span class="badge badge-default">RuleMatcher</span></td>
+                  <td class="px-4 py-3 mono text-text-muted">3ms</td>
+                  <td class="px-4 py-3"><button class="btn-ghost btn-sm" onclick="showLogDetail()">Detail</button></td>
+                </tr>
+                <tr class="hover:bg-bg-hover transition-colors">
+                  <td class="px-4 py-3 mono text-text-muted">14:22:18</td>
+                  <td class="px-4 py-3"><div class="text-sm font-medium text-text-primary">Li Si</div><div class="mono text-text-muted" style="font-size:11px;">emp-002</div></td>
+                  <td class="px-4 py-3 mono text-sm">web_search</td>
+                  <td class="px-4 py-3 mono text-text-secondary truncate-cell">competitor analysis 2026</td>
+                  <td class="px-4 py-3 text-sm text-status-active">safe</td>
+                  <td class="px-4 py-3"><span class="badge badge-success">ALLOW</span></td>
+                  <td class="px-4 py-3"><span class="badge badge-default">RuleMatcher</span></td>
+                  <td class="px-4 py-3 mono text-text-muted">6ms</td>
+                  <td class="px-4 py-3"><button class="btn-ghost btn-sm" onclick="showLogDetail()">Detail</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <!-- Log Detail Panel (demo) -->
-        <div class="detail-panel" id="log-detail" style="display: none;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div class="section-title" style="margin-bottom: 0;">Log Detail — #2</div>
-            <button class="btn btn-sm" onclick="hideLogDetail()">Close</button>
+        <!-- Log Detail Panel (matches Card with collapsible pattern from AgentDetailView) -->
+        <div class="bg-bg-card border border-border-primary rounded-xl" id="log-detail" style="display:none;">
+          <div class="px-5 py-4 border-b border-border-primary flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-text-primary">Log Detail</h3>
+            <button class="btn-ghost btn-sm" onclick="hideLogDetail()">Close</button>
           </div>
-          <div class="detail-row">
-            <span class="detail-key">Employee</span>
-            <span class="detail-val"><strong>李四</strong> (AI 数据分析师)</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-key">Tool</span>
-            <span class="detail-val mono">bash</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-key">Input</span>
-            <span class="detail-val mono text-danger">rm -rf /tmp/production/</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-key">Risk Level</span>
-            <span class="detail-val risk-critical">critical</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-key">Decision</span>
-            <span class="detail-val"><span class="badge badge-danger">DENY</span></span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-key">Evaluator</span>
-            <span class="detail-val">RuleMatcher (matched rule #4: Dangerous bash)</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-key">Reasoning</span>
-            <span class="detail-val">Detected recursive deletion pattern matching dangerous bash rule. Pattern <code class="mono">(rm\s+-rf)</code> matched input command.</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-key">Latency</span>
-            <span class="detail-val mono">12ms</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-key">Timestamp</span>
-            <span class="detail-val mono">2026-05-24 14:31:45 UTC</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-key">Override</span>
-            <span class="detail-val"><button class="btn btn-sm btn-warning">Request Override</button></span>
+          <div class="p-5 space-y-3">
+            <div class="flex justify-between py-2 border-b border-border-primary">
+              <span class="text-sm text-text-muted">Employee</span>
+              <span class="text-sm text-text-primary font-medium">Li Si (AI Data Analyst)</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-border-primary">
+              <span class="text-sm text-text-muted">Tool</span>
+              <span class="text-sm mono text-text-primary">bash</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-border-primary">
+              <span class="text-sm text-text-muted">Input</span>
+              <span class="text-sm mono text-status-error">rm -rf /tmp/production/</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-border-primary">
+              <span class="text-sm text-text-muted">Risk Level</span>
+              <span class="text-sm text-status-error font-bold">critical</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-border-primary">
+              <span class="text-sm text-text-muted">Decision</span>
+              <span><span class="badge badge-danger">DENY</span></span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-border-primary">
+              <span class="text-sm text-text-muted">Evaluator</span>
+              <span class="text-sm text-text-primary">RuleMatcher (matched rule #4: Dangerous bash)</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-border-primary">
+              <span class="text-sm text-text-muted">Reasoning</span>
+              <span class="text-sm text-text-secondary max-w-md">Detected recursive deletion pattern matching dangerous bash rule. Pattern <code class="mono">(rm\s+-rf)</code> matched input command.</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-border-primary">
+              <span class="text-sm text-text-muted">Latency</span>
+              <span class="text-sm mono text-text-primary">12ms</span>
+            </div>
+            <div class="flex justify-between py-2">
+              <span class="text-sm text-text-muted">Timestamp</span>
+              <span class="text-sm mono text-text-primary">2026-05-24 14:31:45 UTC</span>
+            </div>
+            <div class="flex justify-end pt-2">
+              <button class="btn-secondary btn-sm text-status-paused border-status-paused/40">Request Override</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Tab: Override Requests -->
-      <div id="tab-overrides" style="display: none;">
-        <div class="card" style="margin-bottom: 24px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-            <div class="section-title" style="margin-bottom: 0;">
-              Override Requests
-              <span class="count">2 pending, 5 resolved</span>
-            </div>
-            <div class="header-actions">
-              <select class="form-select" style="width: 140px;">
-                <option>Pending</option>
-                <option>Approved</option>
-                <option>Rejected</option>
-                <option>Expired</option>
-                <option>All Status</option>
+      <!-- ===== TAB: Override Requests ===== -->
+      <div id="tab-overrides" class="space-y-6" style="display:none;">
+        <div class="bg-bg-card border border-border-primary rounded-xl">
+          <div class="px-5 py-4 border-b border-border-primary flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-text-primary">Override Requests <span class="text-sm text-text-muted font-normal ml-2">2 pending, 5 resolved</span></h3>
+            <div class="flex items-center gap-3">
+              <select class="bg-bg-tertiary border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary">
+                <option>Pending</option><option>Approved</option><option>Rejected</option><option>Expired</option><option>All</option>
               </select>
-              <button class="btn btn-primary btn-sm" onclick="showOverrideForm()">+ New Request</button>
+              <button class="btn-primary text-white btn-sm flex items-center gap-1" onclick="showOverrideForm()">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                New Request
+              </button>
             </div>
           </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Employee</th>
-                <th>Tool</th>
-                <th>Reason</th>
-                <th>Risk</th>
-                <th>Status</th>
-                <th>Requested</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="mono text-accent">ovr-001</td>
-                <td><strong>李四</strong><br><span class="text-muted mono" style="font-size:11px;">emp-002</span></td>
-                <td><span class="mono">bash</span></td>
-                <td class="truncate">Need to clean up production test data after migration</td>
-                <td><span class="text-danger">high</span></td>
-                <td><span class="badge badge-warning"><span class="badge-dot"></span>Pending</span></td>
-                <td class="text-muted">2h ago</td>
-                <td>
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-sm btn-primary" onclick="approveOverride('ovr-001')">Approve</button>
-                    <button class="btn btn-sm btn-danger" onclick="rejectOverride('ovr-001')">Reject</button>
-                    <button class="btn btn-sm">View</button>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td class="mono text-accent">ovr-002</td>
-                <td><strong>王五</strong><br><span class="text-muted mono" style="font-size:11px;">emp-003</span></td>
-                <td><span class="mono">read_file</span></td>
-                <td class="truncate">Access .env for debugging payment integration</td>
-                <td><span class="text-danger">high</span></td>
-                <td><span class="badge badge-warning"><span class="badge-dot"></span>Pending</span></td>
-                <td class="text-muted">45m ago</td>
-                <td>
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-sm btn-primary" onclick="approveOverride('ovr-002')">Approve</button>
-                    <button class="btn btn-sm btn-danger" onclick="rejectOverride('ovr-002')">Reject</button>
-                    <button class="btn btn-sm">View</button>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td class="mono">ovr-003</td>
-                <td><strong>赵六</strong><br><span class="text-muted mono" style="font-size:11px;">emp-004</span></td>
-                <td><span class="mono">execute_script</span></td>
-                <td class="truncate">Run security audit script on staging</td>
-                <td><span class="text-danger">high</span></td>
-                <td><span class="badge badge-active"><span class="badge-dot"></span>Approved</span></td>
-                <td class="text-muted">1d ago</td>
-                <td>
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-sm">View</button>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td class="mono">ovr-004</td>
-                <td><strong>张三</strong><br><span class="text-muted mono" style="font-size:11px;">emp-001</span></td>
-                <td><span class="mono">web_search</span></td>
-                <td class="truncate">External API access for competitor research</td>
-                <td><span class="text-warning">medium</span></td>
-                <td><span class="badge badge-danger"><span class="badge-dot"></span>Rejected</span></td>
-                <td class="text-muted">2d ago</td>
-                <td>
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-sm">View</button>
-                  </div>
-                </td>
-              </tr>
-              <tr style="opacity: 0.5;">
-                <td class="mono">ovr-005</td>
-                <td><strong>李四</strong><br><span class="text-muted mono" style="font-size:11px;">emp-002</span></td>
-                <td><span class="mono">bash</span></td>
-                <td class="truncate">Deploy to production environment</td>
-                <td><span class="risk-critical">critical</span></td>
-                <td><span class="badge badge-default"><span class="badge-dot"></span>Expired</span></td>
-                <td class="text-muted">3d ago</td>
-                <td>
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-sm">View</button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Override Form (demo) -->
-        <div class="card" style="display: none;" id="override-form">
-          <div class="section-title">New Override Request</div>
-          <div class="grid grid-2">
-            <div class="form-group">
-              <label class="form-label">Employee</label>
-              <select class="form-select">
-                <option>张三 (AI 客服专员)</option>
-                <option selected>李四 (AI 数据分析师)</option>
-                <option>王五 (AI 内容运营)</option>
-                <option>赵六 (AI 代码审查员)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Tool Name</label>
-              <input class="form-input mono" type="text" placeholder="e.g., bash, execute_script">
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Tool Input (what operation will be performed)</label>
-            <textarea class="form-input mono" placeholder="e.g., rm -rf /tmp/test-data/"></textarea>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Business Justification</label>
-            <textarea class="form-input" placeholder="Explain why this operation is necessary and safe..."></textarea>
-          </div>
-          <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px;">
-            <button class="btn" onclick="hideOverrideForm()">Cancel</button>
-            <button class="btn btn-primary">Submit Request</button>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-border-primary">
+              <thead class="bg-bg-secondary">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">ID</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Employee</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Tool</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Reason</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Risk</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Status</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Requested</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border-primary">
+                <tr class="hover:bg-bg-hover transition-colors">
+                  <td class="px-4 py-3 mono text-accent-primary">ovr-001</td>
+                  <td class="px-4 py-3"><div class="text-sm font-medium text-text-primary">Li Si</div><div class="mono text-text-muted" style="font-size:11px;">emp-002</div></td>
+                  <td class="px-4 py-3 mono text-sm">bash</td>
+                  <td class="px-4 py-3 text-sm text-text-secondary truncate-cell">Need to clean up production test data after migration</td>
+                  <td class="px-4 py-3 text-sm text-status-error">high</td>
+                  <td class="px-4 py-3"><span class="badge badge-warning"><span class="badge-dot"></span>Pending</span></td>
+                  <td class="px-4 py-3 text-sm text-text-muted">2h ago</td>
+                  <td class="px-4 py-3">
+                    <div class="flex gap-2">
+                      <button class="btn-primary text-white btn-sm" onclick="approveOverride('ovr-001')">Approve</button>
+                      <button class="btn-danger-btn btn-sm" onclick="rejectOverride('ovr-001')">Reject</button>
+                      <button class="btn-ghost btn-sm">View</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="hover:bg-bg-hover transition-colors">
+                  <td class="px-4 py-3 mono text-accent-primary">ovr-002</td>
+                  <td class="px-4 py-3"><div class="text-sm font-medium text-text-primary">Wang Wu</div><div class="mono text-text-muted" style="font-size:11px;">emp-003</div></td>
+                  <td class="px-4 py-3 mono text-sm">read_file</td>
+                  <td class="px-4 py-3 text-sm text-text-secondary truncate-cell">Access .env for debugging payment integration</td>
+                  <td class="px-4 py-3 text-sm text-status-error">high</td>
+                  <td class="px-4 py-3"><span class="badge badge-warning"><span class="badge-dot"></span>Pending</span></td>
+                  <td class="px-4 py-3 text-sm text-text-muted">45m ago</td>
+                  <td class="px-4 py-3">
+                    <div class="flex gap-2">
+                      <button class="btn-primary text-white btn-sm" onclick="approveOverride('ovr-002')">Approve</button>
+                      <button class="btn-danger-btn btn-sm" onclick="rejectOverride('ovr-002')">Reject</button>
+                      <button class="btn-ghost btn-sm">View</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="hover:bg-bg-hover transition-colors">
+                  <td class="px-4 py-3 mono text-text-secondary">ovr-003</td>
+                  <td class="px-4 py-3"><div class="text-sm font-medium text-text-primary">Zhao Liu</div><div class="mono text-text-muted" style="font-size:11px;">emp-004</div></td>
+                  <td class="px-4 py-3 mono text-sm">execute_script</td>
+                  <td class="px-4 py-3 text-sm text-text-secondary truncate-cell">Run security audit script on staging</td>
+                  <td class="px-4 py-3 text-sm text-status-error">high</td>
+                  <td class="px-4 py-3"><span class="badge badge-success"><span class="badge-dot"></span>Approved</span></td>
+                  <td class="px-4 py-3 text-sm text-text-muted">1d ago</td>
+                  <td class="px-4 py-3">
+                    <div class="flex gap-2">
+                      <button class="btn-ghost btn-sm">View</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="hover:bg-bg-hover transition-colors">
+                  <td class="px-4 py-3 mono text-text-secondary">ovr-004</td>
+                  <td class="px-4 py-3"><div class="text-sm font-medium text-text-primary">Zhang San</div><div class="mono text-text-muted" style="font-size:11px;">emp-001</div></td>
+                  <td class="px-4 py-3 mono text-sm">web_search</td>
+                  <td class="px-4 py-3 text-sm text-text-secondary truncate-cell">External API access for competitor research</td>
+                  <td class="px-4 py-3 text-sm text-status-paused">medium</td>
+                  <td class="px-4 py-3"><span class="badge badge-danger"><span class="badge-dot"></span>Rejected</span></td>
+                  <td class="px-4 py-3 text-sm text-text-muted">2d ago</td>
+                  <td class="px-4 py-3">
+                    <div class="flex gap-2">
+                      <button class="btn-ghost btn-sm">View</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="hover:bg-bg-hover transition-colors opacity-50">
+                  <td class="px-4 py-3 mono text-text-muted">ovr-005</td>
+                  <td class="px-4 py-3"><div class="text-sm font-medium text-text-primary">Li Si</div><div class="mono text-text-muted" style="font-size:11px;">emp-002</div></td>
+                  <td class="px-4 py-3 mono text-sm">bash</td>
+                  <td class="px-4 py-3 text-sm text-text-secondary truncate-cell">Deploy to production environment</td>
+                  <td class="px-4 py-3 text-sm text-status-error font-bold">critical</td>
+                  <td class="px-4 py-3"><span class="badge badge-default"><span class="badge-dot"></span>Expired</span></td>
+                  <td class="px-4 py-3 text-sm text-text-muted">3d ago</td>
+                  <td class="px-4 py-3">
+                    <div class="flex gap-2">
+                      <button class="btn-ghost btn-sm">View</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
-        <!-- Override Detail Panel (demo) -->
-        <div class="detail-panel" id="override-detail" style="display: none;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div class="section-title" style="margin-bottom: 0;">Override Request — ovr-001</div>
-            <button class="btn btn-sm" onclick="hideOverrideDetail()">Close</button>
+        <!-- Override Form (matches AgentCreateView pattern) -->
+        <div class="bg-bg-card border border-border-primary rounded-xl" id="override-form" style="display:none;">
+          <div class="px-5 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">New Override Request</h3>
           </div>
-          <div class="detail-row">
-            <span class="detail-key">Employee</span>
-            <span class="detail-val"><strong>李四</strong> (AI 数据分析师)</span>
+          <div class="p-5 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-text-secondary mb-1">Employee</label>
+                <select class="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-secondary text-text-primary focus:outline-none focus:border-accent-primary">
+                  <option>Zhang San (AI Customer Service)</option><option selected>Li Si (AI Data Analyst)</option><option>Wang Wu (AI Content Operations)</option><option>Zhao Liu (AI Code Reviewer)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-text-secondary mb-1">Tool Name</label>
+                <input type="text" placeholder="e.g., bash, execute_script" class="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-secondary mono text-text-primary focus:outline-none focus:border-accent-primary"/>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-text-secondary mb-1">Tool Input</label>
+              <textarea rows="2" placeholder="e.g., rm -rf /tmp/test-data/" class="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-secondary mono text-text-primary focus:outline-none focus:border-accent-primary resize-none"></textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-text-secondary mb-1">Business Justification</label>
+              <textarea rows="3" placeholder="Explain why this operation is necessary and safe..." class="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-secondary text-text-primary focus:outline-none focus:border-accent-primary resize-none"></textarea>
+            </div>
+            <div class="flex gap-2 justify-end pt-4 border-t border-border-primary">
+              <button class="btn-secondary" onclick="hideOverrideForm()">Cancel</button>
+              <button class="btn-primary text-white">Submit Request</button>
+            </div>
           </div>
-          <div class="detail-row">
-            <span class="detail-key">Tool</span>
-            <span class="detail-val mono">bash</span>
+        </div>
+
+        <!-- Override Detail Panel -->
+        <div class="bg-bg-card border border-border-primary rounded-xl" id="override-detail" style="display:none;">
+          <div class="px-5 py-4 border-b border-border-primary flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-text-primary">Override Request — ovr-001</h3>
+            <button class="btn-ghost btn-sm" onclick="hideOverrideDetail()">Close</button>
           </div>
-          <div class="detail-row">
-            <span class="detail-key">Requested Operation</span>
-            <span class="detail-val mono text-danger">rm -rf /tmp/production/test-data/</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-key">Risk Level</span>
-            <span class="detail-val text-danger">high</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-key">Status</span>
-            <span class="detail-val"><span class="badge badge-warning"><span class="badge-dot"></span>Pending</span></span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-key">Justification</span>
-            <span class="detail-val">Need to clean up production test data after migration. The test-data directory contains temporary files from the v2 migration that are no longer needed.</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-key">Requested By</span>
-            <span class="detail-val">wilde (Platform Admin)</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-key">Requested At</span>
-            <span class="detail-val mono">2026-05-24 12:31:45 UTC</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-key">Expires If Approved</span>
-            <span class="detail-val mono">2026-05-25 12:31:45 UTC (24h)</span>
-          </div>
-          <div style="display: flex; gap: 12px; margin-top: 16px;">
-            <button class="btn btn-primary" onclick="approveOverride('ovr-001')">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-              Approve
-            </button>
-            <button class="btn btn-danger" onclick="rejectOverride('ovr-001')">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-              Reject
-            </button>
+          <div class="p-5 space-y-3">
+            <div class="flex justify-between py-2 border-b border-border-primary">
+              <span class="text-sm text-text-muted">Employee</span>
+              <span class="text-sm text-text-primary font-medium">Li Si (AI Data Analyst)</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-border-primary">
+              <span class="text-sm text-text-muted">Tool</span>
+              <span class="text-sm mono text-text-primary">bash</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-border-primary">
+              <span class="text-sm text-text-muted">Requested Operation</span>
+              <span class="text-sm mono text-status-error">rm -rf /tmp/production/test-data/</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-border-primary">
+              <span class="text-sm text-text-muted">Risk Level</span>
+              <span class="text-sm text-status-error">high</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-border-primary">
+              <span class="text-sm text-text-muted">Status</span>
+              <span><span class="badge badge-warning"><span class="badge-dot"></span>Pending</span></span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-border-primary">
+              <span class="text-sm text-text-muted">Justification</span>
+              <span class="text-sm text-text-secondary max-w-md">Need to clean up production test data after migration. The test-data directory contains temporary files from the v2 migration that are no longer needed.</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-border-primary">
+              <span class="text-sm text-text-muted">Requested By</span>
+              <span class="text-sm text-text-primary">wilde (Platform Admin)</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-border-primary">
+              <span class="text-sm text-text-muted">Requested At</span>
+              <span class="text-sm mono text-text-primary">2026-05-24 12:31:45 UTC</span>
+            </div>
+            <div class="flex justify-between py-2">
+              <span class="text-sm text-text-muted">Expires If Approved</span>
+              <span class="text-sm mono text-text-primary">2026-05-25 12:31:45 UTC (24h)</span>
+            </div>
+            <div class="flex gap-2 justify-end pt-4 border-t border-border-primary">
+              <button class="btn-primary text-white btn-sm flex items-center gap-1" onclick="approveOverride('ovr-001')">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                Approve
+              </button>
+              <button class="btn-danger-btn btn-sm flex items-center gap-1" onclick="rejectOverride('ovr-001')">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                Reject
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </main>
-  </div>
+
+    </div>
+  </main>
 
   <script>
     function switchTab(tab) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      event.target.classList.add('active');
       document.getElementById('tab-rules').style.display = tab === 'rules' ? '' : 'none';
       document.getElementById('tab-audit').style.display = tab === 'audit' ? '' : 'none';
       document.getElementById('tab-overrides').style.display = tab === 'overrides' ? '' : 'none';
+      ['rules','audit','overrides'].forEach(t => {
+        const btn = document.getElementById('tab-btn-' + t);
+        if (t === tab) {
+          btn.className = 'px-5 py-3 text-sm text-accent-primary border-b-2 border-accent-primary cursor-pointer font-medium';
+        } else {
+          btn.className = 'px-5 py-3 text-sm text-text-secondary hover:text-text-primary cursor-pointer transition-colors';
+        }
+      });
     }
 
     function showCreateRule() {
-      const form = document.getElementById('create-rule-form');
-      form.style.display = form.style.display === 'none' ? '' : 'none';
+      const f = document.getElementById('create-rule-form');
+      f.style.display = f.style.display === 'none' ? '' : 'none';
+      if (f.style.display !== 'none') f.scrollIntoView({ behavior: 'smooth' });
     }
-    function hideCreateRule() {
-      document.getElementById('create-rule-form').style.display = 'none';
-    }
+    function hideCreateRule() { document.getElementById('create-rule-form').style.display = 'none'; }
 
-    function showLogDetail(id) {
+    function showLogDetail() {
       document.getElementById('log-detail').style.display = '';
+      document.getElementById('log-detail').scrollIntoView({ behavior: 'smooth' });
     }
-    function hideLogDetail() {
-      document.getElementById('log-detail').style.display = 'none';
-    }
+    function hideLogDetail() { document.getElementById('log-detail').style.display = 'none'; }
 
     function showOverrideForm() {
-      document.getElementById('override-form').style.display = '';
+      const f = document.getElementById('override-form');
+      f.style.display = f.style.display === 'none' ? '' : 'none';
+      if (f.style.display !== 'none') f.scrollIntoView({ behavior: 'smooth' });
     }
-    function hideOverrideForm() {
-      document.getElementById('override-form').style.display = 'none';
-    }
+    function hideOverrideForm() { document.getElementById('override-form').style.display = 'none'; }
 
-    function approveOverride(id) {
-      alert('Approved override ' + id + '. Temporary authorization granted for 24h.');
-    }
-    function rejectOverride(id) {
-      alert('Rejected override ' + id + '.');
-    }
+    function approveOverride(id) { alert('Approved ' + id + '. Temporary authorization granted for 24h.'); }
+    function rejectOverride(id) { alert('Rejected ' + id + '.'); }
 
     function showOverrideDetail() {
       document.getElementById('override-detail').style.display = '';
+      document.getElementById('override-detail').scrollIntoView({ behavior: 'smooth' });
     }
-    function hideOverrideDetail() {
-      document.getElementById('override-detail').style.display = 'none';
-    }
+    function hideOverrideDetail() { document.getElementById('override-detail').style.display = 'none'; }
   </script>
 </body>
 </html>
