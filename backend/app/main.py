@@ -3,13 +3,42 @@
 import logging
 import sys
 
+from contextlib import asynccontextmanager
 from deepagents.backends import StateBackend
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from deepagents.middleware import MemoryMiddleware
 
-from app.api import agents, auth, skills, tools, models, feedback, scheduled_tasks, logs, sessions, conversation_memories, employee_profiles, operations
+from app.api import agents, auth, skills, tools, models, feedback, scheduled_tasks, logs, sessions, conversation_memories, employee_profiles, operations, permission_rules
 from app.config import settings
+from app.infrastructure.storage.sqlite import SQLiteStorage
+from app.application.permission_rule_service import PermissionRuleService
+
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: seed default permission rules on startup."""
+    # Seed default permission rules
+    try:
+        storage = SQLiteStorage(settings.storage.sqlite.path)
+        await storage.init_db()
+        rule_service = PermissionRuleService(storage)
+        created = await rule_service.seed_default_rules()
+        if created:
+            logger.info(f"Seeded {created} default permission rules")
+        else:
+            logger.info("Permission rules already seeded")
+        await storage.close()
+    except Exception as e:
+        logger.warning(f"Failed to seed permission rules on startup: {e}")
+
+    yield
+
+    # Cleanup
+    logger.info("Application shutting down")
+
 
 # Configure logging
 logging.basicConfig(
@@ -21,6 +50,7 @@ logging.basicConfig(
 app = FastAPI(
     title=settings.app.name,
     debug=settings.app.debug,
+    lifespan=lifespan,
 )
 
 # CORS middleware
@@ -45,6 +75,7 @@ app.include_router(sessions.router, prefix="/api")
 app.include_router(conversation_memories.router, prefix="/api")
 app.include_router(employee_profiles.router, prefix="/api")
 app.include_router(operations.router, prefix="/api")
+app.include_router(permission_rules.router, prefix="/api")
 
 
 @app.get("/health")

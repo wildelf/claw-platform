@@ -89,7 +89,15 @@ class WebSearchConfig(BaseModel):
     mcp_args: list[str] = ["minimax-coding-plan-mcp"]
 
 
+class WorkerConfig(BaseModel):
+    heartbeat_interval: int = 30
+    stale_threshold: int = 60
+    max_retries: int = 3
+
+
 class Settings(BaseSettings):
+    model_config = {"extra": "ignore"}
+
     app: AppConfig = AppConfig()
     storage: StorageConfig = StorageConfig()
     auth: AuthConfig
@@ -99,8 +107,11 @@ class Settings(BaseSettings):
     opensandbox: OpenSandboxConfig = OpenSandboxConfig()
     redis: RedisConfig = RedisConfig()
     web_search: WebSearchConfig = WebSearchConfig()
+    worker: WorkerConfig = WorkerConfig()
+    identity_root: str = "~/.claw/employees"
     memory_storage_path: str = "~/.claw/memories"
     skills_cache_path: str = "~/.claw/skills"
+    permission_rules_root: str = "~/.claw/permission-rules"
 
     @classmethod
     def from_yaml(cls, path: Path | str) -> "Settings":

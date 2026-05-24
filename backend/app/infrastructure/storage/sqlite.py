@@ -235,6 +235,78 @@ class NudgeRecordModel(Base):
     created_at = Column(DateTime, nullable=False)
 
 
+# Phase 2: Permission models
+class PermissionRuleModel(Base):
+    __tablename__ = "permission_rules"
+    __table_args__ = (
+        Index("ix_permission_rules_employee_id", "employee_id"),
+        Index("ix_permission_rules_priority", "priority"),
+        Index("ix_permission_rules_enabled", "enabled"),
+    )
+
+    id = Column(String(36), primary_key=True)
+    name = Column(String(200), nullable=False)
+    description = Column(String(1000), default="")
+    category = Column(String(30), nullable=False)
+    risk_level = Column(String(20), nullable=False)
+    pattern = Column(String(500), nullable=False)
+    action = Column(String(20), nullable=False)
+    priority = Column(Integer, default=5)
+    enabled = Column(Boolean, default=True)
+    employee_id = Column(String(36), nullable=True)
+    git_path = Column(String(500), default="")
+    created_by = Column(String(36), nullable=False)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+
+
+class PermissionAuditLogModel(Base):
+    __tablename__ = "permission_audit_logs"
+    __table_args__ = (
+        Index("ix_audit_employee_id", "employee_id"),
+        Index("ix_audit_timestamp", "timestamp"),
+        Index("ix_audit_decision", "decision"),
+        Index("ix_audit_risk_level", "risk_level"),
+    )
+
+    id = Column(String(36), primary_key=True)
+    employee_id = Column(String(36), nullable=False)
+    agent_id = Column(String(36), nullable=False)
+    tool_name = Column(String(100), nullable=False)
+    tool_input = Column(Text, nullable=False)
+    risk_level = Column(String(20), nullable=False)
+    decision = Column(String(20), nullable=False)
+    evaluator = Column(String(30), nullable=False)
+    matched_rule_id = Column(String(36), nullable=True)
+    reasoning = Column(String(2000), default="")
+    latency_ms = Column(Integer, default=0)
+    timestamp = Column(DateTime, nullable=False)
+
+
+class PermissionOverrideRequestModel(Base):
+    __tablename__ = "permission_override_requests"
+    __table_args__ = (
+        Index("ix_override_employee_id", "employee_id"),
+        Index("ix_override_status", "status"),
+        Index("ix_override_expires_at", "expires_at"),
+    )
+
+    id = Column(String(36), primary_key=True)
+    employee_id = Column(String(36), nullable=False)
+    agent_id = Column(String(36), nullable=False)
+    tool_name = Column(String(100), nullable=False)
+    tool_input = Column(Text, nullable=False)
+    risk_level = Column(String(20), nullable=False)
+    reason = Column(String(2000), nullable=False)
+    requested_by = Column(String(36), nullable=False)
+    requested_at = Column(DateTime, nullable=False)
+    status = Column(String(20), default="PENDING")
+    approved_by = Column(String(36), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    rejection_reason = Column(String(1000), nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+
+
 class SQLiteStorage:
     """SQLite storage implementation."""
 
@@ -1190,3 +1262,308 @@ class SQLiteStorage:
                     text("DELETE FROM memory_fts WHERE agent_id = ? AND memory_type = ?"),
                     (agent_id, memory_type),
                 )
+
+    # --- Phase 2: Permission Rule operations ---
+
+    def _to_permission_rule(self, row: PermissionRuleModel):
+        from app.domain.permission_rule import PermissionRule, RuleCategory, RiskLevel, RuleAction
+        return PermissionRule(
+            id=EntityId(row.id),
+            name=row.name,
+            description=row.description or "",
+            category=RuleCategory(row.category),
+            risk_level=RiskLevel(row.risk_level),
+            pattern=row.pattern,
+            action=RuleAction(row.action),
+            priority=row.priority or 5,
+            enabled=row.enabled if row.enabled is not None else True,
+            employee_id=EntityId(row.employee_id) if row.employee_id else None,
+            git_path=row.git_path or "",
+            created_by=EntityId(row.created_by) if row.created_by else None,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+
+    async def save_permission_rule(self, rule) -> None:
+        from app.domain.permission_rule import PermissionRule
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            result = await session.execute(
+                select(PermissionRuleModel).where(PermissionRuleModel.id == rule.id)
+            )
+            existing = result.scalar_one_or_none()
+
+            model = PermissionRuleModel(
+                id=str(rule.id),
+                name=rule.name,
+                description=rule.description,
+                category=rule.category.value if hasattr(rule.category, 'value') else str(rule.category),
+                risk_level=rule.risk_level.value if hasattr(rule.risk_level, 'value') else str(rule.risk_level),
+                pattern=rule.pattern,
+                action=rule.action.value if hasattr(rule.action, 'value') else str(rule.action),
+                priority=rule.priority,
+                enabled=rule.enabled,
+                employee_id=str(rule.employee_id) if rule.employee_id else None,
+                git_path=rule.git_path,
+                created_by=str(rule.created_by) if rule.created_by else "",
+                created_at=rule.created_at,
+                updated_at=rule.updated_at,
+            )
+
+            if existing:
+                for key in ['name', 'description', 'category', 'risk_level', 'pattern',
+                           'action', 'priority', 'enabled', 'employee_id', 'git_path',
+                           'created_by', 'updated_at']:
+                    setattr(existing, key, getattr(model, key))
+            else:
+                session.add(model)
+            await session.commit()
+
+    async def get_permission_rule(self, id: str):
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            result = await session.execute(
+                select(PermissionRuleModel).where(PermissionRuleModel.id == id)
+            )
+            row = result.scalar_one_or_none()
+            return self._to_permission_rule(row) if row else None
+
+    async def list_permission_rules(self, employee_id=None, enabled=None, category=None, offset=0, limit=100):
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            query = select(PermissionRuleModel).order_by(PermissionRuleModel.priority.desc())
+            if employee_id is not None:
+                if employee_id == "null":
+                    query = query.where(PermissionRuleModel.employee_id.is_(None))
+                else:
+                    query = query.where(PermissionRuleModel.employee_id == employee_id)
+            if enabled is not None:
+                query = query.where(PermissionRuleModel.enabled == enabled)
+            if category is not None:
+                query = query.where(PermissionRuleModel.category == category)
+            query = query.offset(offset).limit(limit)
+            result = await session.execute(query)
+            return [self._to_permission_rule(row) for row in result.scalars().all()]
+
+    async def delete_permission_rule(self, id: str) -> None:
+        async with self.async_session() as session:
+            from sqlalchemy import delete
+            await session.execute(delete(PermissionRuleModel).where(PermissionRuleModel.id == id))
+            await session.commit()
+
+    # --- Phase 2: Permission Audit Log operations ---
+
+    def _to_audit_log(self, row: PermissionAuditLogModel):
+        from app.domain.permission_audit_log import PermissionAuditLog, PermissionDecision, EvaluatorType
+        return PermissionAuditLog(
+            id=EntityId(row.id),
+            employee_id=EntityId(row.employee_id),
+            agent_id=EntityId(row.agent_id),
+            tool_name=row.tool_name,
+            tool_input=row.tool_input,
+            risk_level=row.risk_level,
+            decision=PermissionDecision(row.decision),
+            evaluator=EvaluatorType(row.evaluator),
+            matched_rule_id=EntityId(row.matched_rule_id) if row.matched_rule_id else None,
+            reasoning=row.reasoning or "",
+            latency_ms=row.latency_ms or 0,
+            timestamp=row.timestamp,
+        )
+
+    async def save_audit_log(self, log) -> None:
+        async with self.async_session() as session:
+            model = PermissionAuditLogModel(
+                id=str(log.id),
+                employee_id=str(log.employee_id),
+                agent_id=str(log.agent_id),
+                tool_name=log.tool_name,
+                tool_input=log.tool_input[:2000],
+                risk_level=log.risk_level.value if hasattr(log.risk_level, 'value') else str(log.risk_level),
+                decision=log.decision.value if hasattr(log.decision, 'value') else str(log.decision),
+                evaluator=log.evaluator.value if hasattr(log.evaluator, 'value') else str(log.evaluator),
+                matched_rule_id=str(log.matched_rule_id) if log.matched_rule_id else None,
+                reasoning=(log.reasoning or "")[:2000],
+                latency_ms=log.latency_ms,
+                timestamp=log.timestamp,
+            )
+            session.add(model)
+            await session.commit()
+
+    async def query_audit_logs(self, employee_id=None, decision=None, risk_level=None, evaluator=None, offset=0, limit=100):
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            query = select(PermissionAuditLogModel).order_by(PermissionAuditLogModel.timestamp.desc())
+            if employee_id:
+                query = query.where(PermissionAuditLogModel.employee_id == employee_id)
+            if decision:
+                query = query.where(PermissionAuditLogModel.decision == decision)
+            if risk_level:
+                query = query.where(PermissionAuditLogModel.risk_level == risk_level)
+            if evaluator:
+                query = query.where(PermissionAuditLogModel.evaluator == evaluator)
+            query = query.offset(offset).limit(limit)
+            result = await session.execute(query)
+            return [self._to_audit_log(row) for row in result.scalars().all()]
+
+    async def get_audit_log_stats(self, days=7, employee_id=None):
+        from sqlalchemy import select, func
+        from datetime import timedelta
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+        async with self.async_session() as session:
+            base_query = select(PermissionAuditLogModel).where(PermissionAuditLogModel.timestamp >= cutoff)
+            if employee_id:
+                base_query = base_query.where(PermissionAuditLogModel.employee_id == employee_id)
+
+            result = await session.execute(base_query)
+            logs = result.scalars().all()
+
+            total = len(logs)
+            by_decision = {}
+            by_risk_level = {}
+            by_evaluator = {}
+            latencies = []
+
+            for log in logs:
+                by_decision[log.decision] = by_decision.get(log.decision, 0) + 1
+                by_risk_level[log.risk_level] = by_risk_level.get(log.risk_level, 0) + 1
+                by_evaluator[log.evaluator] = by_evaluator.get(log.evaluator, 0) + 1
+                if log.latency_ms:
+                    latencies.append(log.latency_ms)
+
+            latencies.sort()
+            avg_latency = int(sum(latencies) / len(latencies)) if latencies else 0
+            p95_idx = int(len(latencies) * 0.95) if latencies else 0
+            p95_latency = latencies[p95_idx] if latencies else 0
+
+            return {
+                "period": f"{days}d",
+                "total_evaluations": total,
+                "by_decision": by_decision,
+                "by_risk_level": by_risk_level,
+                "by_evaluator": by_evaluator,
+                "avg_latency_ms": avg_latency,
+                "p95_latency_ms": p95_latency,
+            }
+
+    # --- Phase 2: Permission Override Request operations ---
+
+    def _to_override_request(self, row: PermissionOverrideRequestModel):
+        from app.domain.permission_override_request import PermissionOverrideRequest, OverrideStatus
+        return PermissionOverrideRequest(
+            id=EntityId(row.id),
+            employee_id=EntityId(row.employee_id),
+            agent_id=EntityId(row.agent_id),
+            tool_name=row.tool_name,
+            tool_input=row.tool_input,
+            risk_level=row.risk_level,
+            reason=row.reason,
+            requested_by=EntityId(row.requested_by),
+            requested_at=row.requested_at,
+            status=OverrideStatus(row.status),
+            approved_by=EntityId(row.approved_by) if row.approved_by else None,
+            approved_at=row.approved_at,
+            rejection_reason=row.rejection_reason,
+            expires_at=row.expires_at,
+        )
+
+    async def save_override_request(self, req) -> None:
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            result = await session.execute(
+                select(PermissionOverrideRequestModel).where(PermissionOverrideRequestModel.id == req.id)
+            )
+            existing = result.scalar_one_or_none()
+
+            model = PermissionOverrideRequestModel(
+                id=str(req.id),
+                employee_id=str(req.employee_id),
+                agent_id=str(req.agent_id),
+                tool_name=req.tool_name,
+                tool_input=req.tool_input[:2000],
+                risk_level=req.risk_level if isinstance(req.risk_level, str) else req.risk_level.value,
+                reason=req.reason,
+                requested_by=str(req.requested_by),
+                requested_at=req.requested_at,
+                status=req.status.value if hasattr(req.status, 'value') else str(req.status),
+                approved_by=str(req.approved_by) if req.approved_by else None,
+                approved_at=req.approved_at,
+                rejection_reason=req.rejection_reason,
+                expires_at=req.expires_at,
+            )
+
+            if existing:
+                for key in ['employee_id', 'agent_id', 'tool_name', 'tool_input', 'risk_level',
+                           'reason', 'requested_by', 'requested_at', 'status', 'approved_by',
+                           'approved_at', 'rejection_reason', 'expires_at']:
+                    setattr(existing, key, getattr(model, key))
+            else:
+                session.add(model)
+            await session.commit()
+
+    async def get_override_request(self, id: str):
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            result = await session.execute(
+                select(PermissionOverrideRequestModel).where(PermissionOverrideRequestModel.id == id)
+            )
+            row = result.scalar_one_or_none()
+            return self._to_override_request(row) if row else None
+
+    async def list_override_requests(self, employee_id=None, status=None, offset=0, limit=100):
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            query = select(PermissionOverrideRequestModel).order_by(PermissionOverrideRequestModel.requested_at.desc())
+            if employee_id:
+                query = query.where(PermissionOverrideRequestModel.employee_id == employee_id)
+            if status:
+                query = query.where(PermissionOverrideRequestModel.status == status)
+            query = query.offset(offset).limit(limit)
+            result = await session.execute(query)
+            return [self._to_override_request(row) for row in result.scalars().all()]
+
+    async def update_override_request(self, id: str, data: dict):
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            result = await session.execute(
+                select(PermissionOverrideRequestModel).where(PermissionOverrideRequestModel.id == id)
+            )
+            row = result.scalar_one_or_none()
+            if not row:
+                return None
+            for key, value in data.items():
+                if hasattr(row, key):
+                    setattr(row, key, value)
+            await session.commit()
+            return self._to_override_request(row)
+
+    async def expire_overdue_overrides(self) -> int:
+        from sqlalchemy import update
+        now = datetime.now(timezone.utc)
+        async with self.async_session() as session:
+            result = await session.execute(
+                update(PermissionOverrideRequestModel)
+                .where(PermissionOverrideRequestModel.status == "APPROVED")
+                .where(PermissionOverrideRequestModel.expires_at < now)
+                .values(status="EXPIRED")
+            )
+            await session.commit()
+            return result.rowcount or 0
+
+    async def get_active_override(self, employee_id: str, agent_id: str, tool_name: str):
+        """Check if there is an active (approved, not expired) override."""
+        from sqlalchemy import select
+        now = datetime.now(timezone.utc)
+        async with self.async_session() as session:
+            result = await session.execute(
+                select(PermissionOverrideRequestModel)
+                .where(PermissionOverrideRequestModel.employee_id == employee_id)
+                .where(PermissionOverrideRequestModel.agent_id == agent_id)
+                .where(PermissionOverrideRequestModel.tool_name == tool_name)
+                .where(PermissionOverrideRequestModel.status == "APPROVED")
+                .where(PermissionOverrideRequestModel.expires_at > now)
+                .limit(1)
+            )
+            row = result.scalar_one_or_none()
+            return self._to_override_request(row) if row else None
+
