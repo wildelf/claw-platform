@@ -35,10 +35,23 @@ class MCPAuthError(MCPToolError):
 class PermissionDeniedError(Exception):
     """Agent tried to call an unauthorized tool."""
 
-    def __init__(self, tool_name: str, agent_id: str):
+    def __init__(
+        self,
+        tool_name: str,
+        agent_id: str,
+        reason: str | None = None,
+        risk_level: str | None = None,
+        override_request_id: str | None = None,
+    ):
         self.tool_name = tool_name
         self.agent_id = agent_id
-        super().__init__(f"Agent '{agent_id}' tried to call unauthorized tool '{tool_name}'")
+        self.reason = reason
+        self.risk_level = risk_level
+        self.override_request_id = override_request_id
+        msg = f"Agent '{agent_id}' tried to call unauthorized tool '{tool_name}'"
+        if reason:
+            msg += f" - {reason}"
+        super().__init__(msg)
 
 
 class SkillNotFoundError(Exception):
