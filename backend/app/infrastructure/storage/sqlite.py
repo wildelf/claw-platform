@@ -235,6 +235,28 @@ class NudgeRecordModel(Base):
     created_at = Column(DateTime, nullable=False)
 
 
+class EmployeeProfileModel(Base):
+    __tablename__ = "employee_profiles"
+    __table_args__ = (
+        Index("ix_employee_profiles_user_id", "user_id"),
+        Index("ix_employee_profiles_status", "status"),
+    )
+
+    id = Column(String(36), primary_key=True)
+    name = Column(String(100), nullable=False)
+    role = Column(String(500), default="")
+    goal = Column(String(1000), default="")
+    backstory = Column(Text, default="")
+    personality = Column(Text, default="")
+    constraints = Column(Text, default="")
+    working_rules = Column(Text, default="")
+    status = Column(String(20), default="active")
+    git_path = Column(String(500), default="")
+    user_id = Column(String(36), nullable=True)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+
+
 # Phase 2: Permission models
 class PermissionRuleModel(Base):
     __tablename__ = "permission_rules"
@@ -1170,6 +1192,84 @@ class SQLiteStorage:
                 .limit(limit)
             )
             return [self._to_nudge_record(row) for row in result.scalars().all()]
+
+    # --- Employee Profile operations ---
+
+    def _to_employee_profile(self, row: EmployeeProfileModel):
+        from app.domain.employee_profile import EmployeeProfile
+        return EmployeeProfile(
+            id=EntityId(row.id),
+            name=row.name,
+            role=row.role or "",
+            goal=row.goal or "",
+            backstory=row.backstory or "",
+            personality=row.personality or "",
+            constraints=row.constraints or "",
+            working_rules=row.working_rules or "",
+            status=row.status or "active",
+            git_path=row.git_path or "",
+            user_id=EntityId(row.user_id) if row.user_id else None,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+
+    async def save_employee_profile(self, profile) -> None:
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            result = await session.execute(
+                select(EmployeeProfileModel).where(EmployeeProfileModel.id == profile.id)
+            )
+            existing = result.scalar_one_or_none()
+
+            model = EmployeeProfileModel(
+                id=str(profile.id),
+                name=profile.name,
+                role=profile.role,
+                goal=profile.goal,
+                backstory=profile.backstory,
+                personality=profile.personality,
+                constraints=profile.constraints,
+                working_rules=profile.working_rules,
+                status=profile.status,
+                git_path=profile.git_path,
+                user_id=str(profile.user_id) if profile.user_id else None,
+                created_at=profile.created_at,
+                updated_at=profile.updated_at,
+            )
+
+            if existing:
+                for key in ['name', 'role', 'goal', 'backstory', 'personality',
+                           'constraints', 'working_rules', 'status', 'git_path',
+                           'user_id', 'updated_at']:
+                    setattr(existing, key, getattr(model, key))
+            else:
+                session.add(model)
+            await session.commit()
+
+    async def get_employee_profile(self, profile_id: str):
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            result = await session.execute(
+                select(EmployeeProfileModel).where(EmployeeProfileModel.id == profile_id)
+            )
+            row = result.scalar_one_or_none()
+            return self._to_employee_profile(row) if row else None
+
+    async def list_employee_profiles(self, user_id: str) -> List:
+        from app.domain.employee_profile import EmployeeProfile
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            query = select(EmployeeProfileModel).where(EmployeeProfileModel.user_id == user_id)
+            result = await session.execute(query)
+            return [self._to_employee_profile(row) for row in result.scalars().all()]
+
+    async def delete_employee_profile(self, profile_id: str) -> None:
+        async with self.async_session() as session:
+            from sqlalchemy import delete
+            await session.execute(
+                delete(EmployeeProfileModel).where(EmployeeProfileModel.id == profile_id)
+            )
+            await session.commit()
 
     # FTS5 memory search operations
     async def create_memory_fts_table(self) -> None:
