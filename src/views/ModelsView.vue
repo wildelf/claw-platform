@@ -55,15 +55,6 @@ async function testConnection(row: any) {
     row.testLoading = false
   }
 }
-
-function getProviderBadge(type: string): string {
-  switch (type) {
-    case 'openai': return 'blue'
-    case 'anthropic': return 'purple'
-    case 'deepseek': return 'green'
-    default: return 'gray'
-  }
-}
 </script>
 
 <template>
